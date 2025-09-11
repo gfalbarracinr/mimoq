@@ -1,0 +1,19 @@
+namespace: despliegue19
+image:
+  - name: redis:7.2
+    portExpose: 6379
+  - name: nginx:1.27
+    portExpose: 9090
+nodePort:
+  - 32452
+  - 30144
+appName:
+  - myredis
+  - mynginx
+cantReplicas:
+  - 1
+  - 1
+autoscaling: true
+minReplicas: 1
+maxReplicas: 5
+targetCPUUtilizationPercentage: 80

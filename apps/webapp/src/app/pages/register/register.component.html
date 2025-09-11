@@ -1,0 +1,62 @@
+<section class="page-section" id="contact">
+<div class="container">
+    <div class="text-center">
+        <h2 class="section-heading">Crear una cuenta</h2>
+    </div>
+    <form [formGroup]="usuarioForm" id="contactForm" data-sb-form-api-token="API_TOKEN">
+        <div class="row align-items-stretch mb-5">
+            <div class="col-md-6">
+              <div class="form-group">
+                <!-- Name input-->
+                <label class="section-label" for="name">Nombre Completo</label>
+                <input class="form-control" formControlName="nombre" id="name" type="text" placeholder="Ingrese el nombre completo *" data-sb-validations="required" />
+                <div class="invalid-feedback" data-sb-feedback="name:required">El nombre es requerido.</div>
+              </div>
+              <div class="form-group">
+                <!-- Name input-->
+                <label class="section-label" for="document">Número de Documento</label>
+                <input class="form-control" formControlName="documento" id="document" type="text" placeholder="Ingrese número de documento *" data-sb-validations="required" />
+                <div class="invalid-feedback" data-sb-feedback="document:required">El número de documento es requerido.</div>
+              </div>
+              <div class="form-group">
+                <!-- Email address input-->
+                <label class="section-label" for="email">Email</label>
+                <input class="form-control" formControlName="email" id="email" type="email" placeholder="Ingrese el Email *" data-sb-validations="required,email" />
+                <div class="invalid-feedback" data-sb-feedback="email:required">El correo es requerido.</div>
+                <div class="invalid-feedback" data-sb-feedback="email:email">El correo no es válido.</div>
+              </div>
+              <div class="form-group mb-md-0">
+                <!-- Password input-->
+                <label class="section-label" for="password">Contraseña</label>
+                <input class="form-control" formControlName="contrasena" id="password" type="password" placeholder="Ingrese la contraseña *" data-sb-validations="required" />
+                <div class="invalid-feedback" data-sb-feedback="password:required">La contraseña es requerida.</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <img class="d-block mx-auto mb-4" src="../../../../assets/img/Logo_Negro.svg" alt="" width="400" height="200">
+              <h3 class="section-mimoq text-uppercase">MICROSERVICE METRICS OF QUALITY</h3>
+            </div>
+        </div>
+        <!-- Submit success message-->
+        <!---->
+        <!-- This is what your users will see when the form-->
+        <!-- has successfully submitted-->
+        @if(registroExitoso){
+          <div class="d-none" id="submitSuccessMessage">
+            <div class="text-center mb-3">
+                <div class="fw-bolder text-blue">¡Registro exitoso!</div>
+            </div>
+        </div>
+        }
+        @else{
+          <div class="d-none" id="submitErrorMessage">
+            <div class="text-center text-danger mb-3">Error en el registro</div>
+          </div>
+        }
+        <div class="text-center form-conent">
+          <button class="btn btn-primary btn-xl" id="submitButton" type="submit" (click)="crearUsuario()">Registrar</button>
+        </div>
+    </form>
+</div>
+<script src="../../../../assets/js/checkout.js"></script>
+</section>

@@ -1,0 +1,17 @@
+{
+  "type": "postgres",
+  "host": "localhost",
+  "port": 5432,
+  "username": "postgres",
+  "password": "test",
+  "database": "mimoq",
+  "schema": "public",
+  "synchronize": false,
+  "logging": true,
+  "entities": ["src/**/*.entity.ts"],
+  "migrations": ["src/database/migrations/*.ts"],
+  "cli": {
+    "migrationsDir": "src/database/migrations"
+  },
+  "migrationsTableName": "migrations"
+}

@@ -1,0 +1,87 @@
+###########################
+## UN POD POR CONTENEDOR ##
+###########################
+
+### Validar que el namespace no exista
+{{- $namespace := .Values.namespace }}
+{{- $autoscaling := .Values.autoscaling }}
+{{- $minReplicas := .Values.minReplicas }}
+{{- $maxReplicas := .Values.maxReplicas }}
+{{- $targetCPUUtilizationPercentage := .Values.targetCPUUtilizationPercentage }}
+
+{{- $existingNamespace := "" }}
+
+{{- with .Release.Namespace }}
+{{- $existingNamespace = . }}
+{{- end }}
+
+{{- if eq $existingNamespace "" }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ $namespace }}
+{{- end }}
+
+{{- range $index, $appName := .Values.appName }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $appName }}
+  namespace: {{ $namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ $appName }}
+  replicas: {{ index $.Values.cantReplicas $index }}
+  template:
+    metadata:
+      labels:
+        app: {{ $appName }}
+    spec:
+      containers:
+      - name: {{ $appName }}
+        image: "{{ index $.Values.image $index "name" }}"
+        # imagePullPolicy: IfNotExist
+        ports:
+          - containerPort: {{ index (index $.Values.image $index) "portExpose" }}
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "400m"
+---
+{{- if $autoscaling }}
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ $appName }}-hpa
+  namespace: {{ $namespace }}
+  annotations:
+    "autoscaling.alpha.kubernetes.io/kubelet-insecure-tls": "true"
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ $appName }}
+  minReplicas: {{ $minReplicas }}
+  maxReplicas: {{ $maxReplicas }}
+  targetCPUUtilizationPercentage: {{ $targetCPUUtilizationPercentage }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $appName }}
+  namespace: {{ $namespace }}
+  labels:
+    job: node-api
+spec:
+  type: NodePort
+  selector:
+    app: {{ $appName }}
+  ports:
+  - protocol: TCP
+    port: {{ index (index $.Values.image $index) "portExpose" }}
+    targetPort: {{ index (index $.Values.image $index) "portExpose" }}
+    nodePort: {{ index $.Values.nodePort $index }}
+{{- end }}

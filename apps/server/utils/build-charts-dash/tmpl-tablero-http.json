@@ -1,0 +1,139 @@
+{
+  "dashboard": {
+    "id": 0,
+    "version": 0   ,
+    "uid": "example-definitvoeepepe",
+    "title": "PORFISFUNCIONAPERRO222",
+    "timezone": "browser",
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "description": "Visualize k6 OSS results stored in Prometheus",
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "gnetId": 19665,
+    "graphTooltip": 0,
+    "links": [
+      {
+        "asDropdown": false,
+        "icon": "external link",
+        "includeVars": false,
+        "keepTime": false,
+        "tags": [],
+        "targetBlank": true,
+        "title": "Grafana k6 OSS Docs: Prometheus Remote Write",
+        "tooltip": "Open docs in a new tab",
+        "type": "link",
+        "url": "https://k6.io/docs/results-output/real-time/prometheus-remote-write/"
+      }
+    ],
+    "liveNow": false,
+    "panels": [
+    ],
+    "time": {
+      "from": "now-5m",
+      "to": "now"
+    },
+    "refresh": "",
+    "schemaVersion": 39,
+    "tags": [],
+    "templating": {
+      "list": [
+        {
+          "current": {
+            "selected": false,
+            "text": "Prometheus",
+            "value": "prometheus"
+          },
+          "description": "Choose a Prometheus Data Source",
+          "hide": 0,
+          "includeAll": false,
+          "label": "Prometheus DS",
+          "multi": false,
+          "name": "DS_PROMETHEUS",
+          "options": [],
+          "query": "prometheus",
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "type": "datasource"
+        },
+        {
+          "current": {
+            "selected": true,
+            "text": "elpepe",
+            "value": "$__elpepe"
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "definition": "label_values()",
+          "description": "Filter by \"testid\" tag. Define it by tagging: k6 run --tag testid=xyz",
+          "hide": 0,
+          "includeAll": true,
+          "label": "Test ID",
+          "multi": true,
+          "name": "testid",
+          "options": [  ],
+          "query": {
+            "qryType": 1,
+            "query": "label_values()",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "refresh": 1,
+          "regex": "",
+          "skipUrlSync": false,
+          "sort": 0,
+          "type": "query"
+        },
+        {
+          "current": {
+            "selected": true  ,
+            "text": "p99",
+            "value": "p99"
+          },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "definition": "metrics(k6_http_req_duration_)",
+          "description": "Statistic for Trend Metrics Queries. The available options depend on the values of the K6_PROMETHEUS_RW_TREND_STATS setting.",
+          "hide": 0,
+          "includeAll": false,
+          "label": "Trend Metrics Query",
+          "multi": false,
+          "name": "quantile_stat",
+          "options": [],
+          "query": {
+            "qryType": 2,
+            "query": "metrics(k6_http_req_duration_)",
+            "refId": "PrometheusVariableQueryEditor-VariableQuery"
+          },
+          "refresh": 2,
+          "regex": "/http_req_duration_(min|max|count|sum|avg|med|p[0-9]+)/g",
+          "skipUrlSync": false,
+          "sort": 2,
+          "type": "query"
+        }
+      ]
+    },
+    "timepicker": {},
+    "weekStart": ""
+  },
+  "folderId": null,
+  "overwrite": false
+}
