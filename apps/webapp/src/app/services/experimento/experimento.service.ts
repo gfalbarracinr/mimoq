@@ -1,13 +1,15 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, OnInit } from '@angular/core';
 import { Observable, Subject, tap } from 'rxjs';
 import { ExperimentoInterface } from '../../core/interfaces/experimento';
 import { Experimento } from '../../core/model/experimento/experimento';
+import config from '../../config';
+import { ConfigService } from '../../config.service';
 
 @Injectable({
   providedIn: 'root'
 })
-export class ExperimentoService {
+export class ExperimentoService implements OnInit {
 
   nuevoExperimento: Experimento = {} as Experimento;
   iframes: string[] = [];
@@ -18,8 +20,8 @@ export class ExperimentoService {
     })
   };
 
-  private urlBackend: string = 'http://localhost:3000/api/experimento/'
-  constructor(private httpClient: HttpClient) { }
+  private urlBackend: string = ''
+  constructor(private httpClient: HttpClient, private configService: ConfigService) { }
 
   get refresh() {
     return this._refresh;
@@ -71,5 +73,10 @@ export class ExperimentoService {
 
   getIFrames(): string[]{
     return this.iframes;
+  }
+
+  ngOnInit(): void {
+    const config = this.configService.getConfig()
+    this.urlBackend = `http://${config.apiHostname}:3000/api/experimento/`  
   }
 }

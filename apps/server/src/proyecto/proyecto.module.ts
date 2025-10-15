@@ -12,6 +12,7 @@ import { Usuario } from '../usuario/entities/usuario.entity';
 import { RolUsuario } from '../usuario/entities/rol-usuario.entity';
 import { UsuarioService } from '../usuario/services/usuario/usuario.service';
 import { RolUsuarioService } from '../usuario/services/rol-usuario/rol-usuario.service';
+import { KubernetesModule } from '../kubernetes/kubernetes.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -19,7 +20,8 @@ import { RolUsuarioService } from '../usuario/services/rol-usuario/rol-usuario.s
       Despliegue,
       Usuario,
       RolUsuario
-    ])],
+    ]),
+    KubernetesModule],
   providers: [
     ProyectoService,
     DespliegueService,

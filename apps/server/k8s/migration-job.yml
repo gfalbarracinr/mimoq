@@ -1,25 +1,15 @@
-apiVersion: apps/v1
-kind: Deployment
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: server
-  labels:
-    app: server
+  name: migration-job
 spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: server
   template:
-    metadata:
-      labels:
-        app: server
     spec:
-      serviceAccountName: nest-deployer
+      restartPolicy: OnFailure
       containers:
-        - name: server
+        - name: migration-container
           image: gfalbarracinr/server:latest
-          ports:
-            - containerPort: 3000
+          command: ["npm", "run", "migration:run"]
           env:
             - name: DB_HOST
               value: postgres
@@ -41,5 +31,4 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
-                  key: POSTGRES_DB  
-  
+                  key: POSTGRES_DB

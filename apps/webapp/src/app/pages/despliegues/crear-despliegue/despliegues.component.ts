@@ -99,7 +99,6 @@ export class DesplieguesComponent implements OnInit {
     this.loading = true;
     console.log(this.despliegueForm.value);
     if (this.despliegueForm.valid) {
-      console.log('Entra al if');
       const nuevoDespliegue = this.despliegueForm.value;
       const formArray = this.despliegueForm.get('replicasMicro') as FormArray;
       formArray.controls.forEach(element => {

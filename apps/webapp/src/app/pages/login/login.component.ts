@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterOutlet, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth/auth.service';
@@ -6,6 +6,8 @@ import { Login } from '../../core/usuario';
 import Swal from 'sweetalert2';
 import { ROUTES_APP } from '../../core/enum/routes.enum';
 import { ModalComponent } from "../modal/modal.component";
+import config from '../../config';
+import { ConfigService } from '../../config.service';
 
 @Component({
     selector: 'app-login',
@@ -15,12 +17,12 @@ import { ModalComponent } from "../modal/modal.component";
     imports: [FormsModule, RouterOutlet, RouterLink, ModalComponent]
 })
 
-export class LoginComponent {
-  urlBackend: string  = 'http://localhost:3000/api';
+export class LoginComponent implements OnInit {
+  urlBackend: string  = ''
   loginObj: Login = {} as Login;
   login:boolean = false;
 
-  constructor(private authService: AuthService, private router: Router) {
+  constructor(private authService: AuthService, private router: Router, private configService: ConfigService) {
 
   }
   get ROUTES_APP(){
@@ -52,5 +54,9 @@ export class LoginComponent {
         console.error('Error:', error);
         Swal.fire('Error', 'Ocurrió un error al ingresar', 'error');
       });
+  }
+  ngOnInit(): void {
+    const config = this.configService.getConfig()
+    this.urlBackend = `http://${config.apiHostname}:3000/api`
   }
 }

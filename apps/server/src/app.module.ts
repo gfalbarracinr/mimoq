@@ -12,6 +12,8 @@ import { ExperimentoModule } from './experimento/experimento.module';
 import { AuthModule } from './auth/auth.module';
 import { enviroments } from './enviroments';
 import { DevtoolsModule } from '@nestjs/devtools-integration';
+import { KubernetesService } from './kubernetes/kubernetes.service';
+import { GitService } from './git/git.service';
 
 @Module({
   imports: [
@@ -35,6 +37,6 @@ import { DevtoolsModule } from '@nestjs/devtools-integration';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, KubernetesService, GitService],
 })
 export class AppModule { }

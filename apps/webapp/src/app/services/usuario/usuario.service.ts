@@ -1,20 +1,26 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnInit } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Usuario } from '../../core/model/usuario/usuario';
+import { ConfigService } from '../../config.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class UsuarioService {
-  constructor(private httpClient: HttpClient) { }
+  private urlBackend: string = ''
+
+  constructor(private httpClient: HttpClient, private configService: ConfigService) {
+    const config = this.configService.getConfig()
+    this.urlBackend = `http://${config.apiHostname}:3000/api/usuario/`
+  }
+  
   private httpOptions = {
     headers: new HttpHeaders({
       "Content-Type": "application/json"
     })
   };
 
-  private urlBackend: string = 'http://localhost:3000/api/usuario/'
 
   public findAll(): Observable<Usuario[]> {
     return this.httpClient.get<Usuario[]>(this.urlBackend);
@@ -24,6 +30,7 @@ export class UsuarioService {
   }
 
   public create(usuario: any): Observable<Usuario> {
+    console.log('bCKED', this.urlBackend)
     return this.httpClient.post<Usuario>(this.urlBackend, usuario, this.httpOptions);
   }
 

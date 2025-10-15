@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+spec:
+  type: NodePort           
+  selector:
+    app: server            # debe coincidir con el label del Deployment
+  ports:
+    - name: http
+      port: 3000           # puerto interno del Service
+      targetPort: 3000     # puerto del contenedor
+      nodePort: 32010

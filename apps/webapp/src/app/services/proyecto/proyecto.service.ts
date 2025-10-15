@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, Subject, tap } from 'rxjs';
 import { Proyecto } from '../../core/model/proyecto/proyecto';
 import { ProyectoInterface } from '../../core/interfaces/proyecto';
+import { ConfigService } from '../../config.service';
 
 @Injectable({
   providedIn: 'root'
@@ -15,8 +16,11 @@ export class ProyectoService {
       "Content-Type": "application/json"
     })
   };
-  private urlBackend: string = 'http://localhost:3000/api/proyecto/'
-  constructor(private httpClient: HttpClient) { }
+  private urlBackend: string = ''
+  constructor(private httpClient: HttpClient, private configService: ConfigService) { 
+    const config = this.configService.getConfig()
+    this.urlBackend = `http://${config.apiHostname}:3000/api/proyecto/`
+  }
 
   get refresh() {
     return this._refresh;

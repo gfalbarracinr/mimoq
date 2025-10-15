@@ -2,6 +2,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { DespliegueInterface } from '../../core/interfaces/despliegue';
+import { ConfigService } from '../../config.service';
 
 @Injectable({
   providedIn: 'root'
@@ -14,8 +15,11 @@ export class DespliegueService {
       "Content-Type": "application/json"
     })
   };
-  private urlBackend: string = 'http://localhost:3000/api/despliegue/'
-  constructor(private httpClient: HttpClient) { }
+  private urlBackend: string = ''
+  constructor(private httpClient: HttpClient, private configService: ConfigService) {
+    const config = this.configService.getConfig()
+    this.urlBackend = `http://${config.apiHostname}:3000/api/despliegue/`
+  }
 
   findAll(): Observable<DespliegueInterface[]> {
     return this.httpClient.get<DespliegueInterface[]>(this.urlBackend);

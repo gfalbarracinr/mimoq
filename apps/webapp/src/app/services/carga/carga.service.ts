@@ -1,12 +1,14 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, OnInit } from '@angular/core';
 import { Observable } from 'rxjs';
 import { CargaInterface } from '../../core/interfaces/carga';
+import config from '../../config';
+import { ConfigService } from '../../config.service';
 
 @Injectable({
   providedIn: 'root'
 })
-export class CargaService {
+export class CargaService implements OnInit {
 
   nuevaCarga: CargaInterface = {} as CargaInterface;
   private httpOptions = {
@@ -14,8 +16,8 @@ export class CargaService {
       "Content-Type": "application/json"
     })
   };
-  private urlBackend: string = 'http://localhost:3000/api/carga/'
-  constructor(private httpClient: HttpClient) { }
+  private urlBackend: string = ''
+  constructor(private httpClient: HttpClient, private configService: ConfigService) { }
   
   findAll(): Observable<CargaInterface[]> {
     return this.httpClient.get<CargaInterface[]>(this.urlBackend);
@@ -40,5 +42,9 @@ export class CargaService {
 
   getCarga(): CargaInterface {
     return this.nuevaCarga;
+  }
+  ngOnInit(): void {
+    const config = this.configService.getConfig()
+    this.urlBackend = `http://${config.apiHostname}:3000/api/carga/`
   }
 }

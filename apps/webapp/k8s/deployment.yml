@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: webapp
-        image: webapp
+        image: gfalbarracinr/webapp:latest
         imagePullPolicy: IfNotPresent
         resources:
           limits:

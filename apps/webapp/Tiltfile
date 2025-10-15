@@ -1,11 +1,16 @@
 docker_build(
-  'webapp',
+  'gfalbarracinr/webapp',
   '.',
+  dockerfile='Dockerfile.dev',
+  live_update=[
+  sync('./src', '/app/src'),
+  run('npm install', trigger=['package.json', 'package-lock.json']),
+  ]
 )
 
 k8s_yaml('./k8s/deployment.yml')
 
 k8s_resource(
   'webapp',
-  port_forwards=['4200:80'],
+  port_forwards=['4200:4200']
 )

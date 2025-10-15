@@ -1,12 +1,12 @@
 # To run locally the APP
 
-- Install microk8s
+- Install [Kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
 
-- Install Tilt
+- Install [Tilt](https://docs.tilt.dev/install.html)
 
-- run the following command to create a local image of docker registry
+- run the following command to create a local cluuster 
 
-    `docker run -d -p 5000:5000 --name registry registry:2`
+    `kind create cluster --config kind.yaml`
 
 - run tilt up
 

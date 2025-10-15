@@ -1,5 +1,5 @@
 /** NestJS */
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 /** Dtos */
@@ -14,6 +14,7 @@ import * as fs from 'fs-extra';
 import * as yaml from 'js-yaml';
 import { DespliegueService } from '../despliegue/despliegue.service';
 import { spawn } from 'child_process';
+import { KubernetesService } from '../../../kubernetes/kubernetes.service';
 
 /** Intefaces para el despliegue con docker-compose */
 interface ServiceConfig {
@@ -28,6 +29,7 @@ interface DockerComposeConfig {
 
 @Injectable()
 export class DespliegueMultipleService {
+  private logger: Logger
   private imagenesDespliegues: string[] = [];
   private nombresDespliegues: string[] = [];
   private puertosDespliegues: number[] = [];
@@ -40,6 +42,7 @@ export class DespliegueMultipleService {
     @InjectRepository(Proyecto)
     private proyectoRepo: Repository<Proyecto>,
     private despliegueUtilsService: DespliegueService,
+    private kubernetesService: KubernetesService,
     private proyectoService: ProyectoService,
   ) { }
 
@@ -47,7 +50,8 @@ export class DespliegueMultipleService {
   async validateProjectToDeploy(data: CreateDeploymentDto) {
     const proyecto = await this.proyectoService.findOne(data.fk_proyecto);
     if (!proyecto) {
-      throw new InternalServerErrorException(`No se encontró el proyecto con id ${data.fk_proyecto}`);
+      this.logger.error(`Project ${data.fk_proyecto} not found`)
+      throw new InternalServerErrorException(`Project ${data.fk_proyecto} not found`);
     }
 
     const tempDir = `./utils/temp-repo-${Date.now()}`;
@@ -60,7 +64,7 @@ export class DespliegueMultipleService {
          * PERO los servicios no tienen puertos en el compose, sino que toca sacarlos del Dockerfile que se construye
          * Para la construcción, se debe tomar el path de "build", ir allí, construir la imagen y sacar el puerto de dockerfile
          */
-        this.recorrerCadaCarpetaDelRepoParaDockerfile(proyecto, data, tempDir);
+        return this.recorrerCadaCarpetaDelRepoParaDockerfile(proyecto, data, tempDir);
       } else {
         /**
          * Docker compose con servicios que tienen image o build
@@ -74,12 +78,42 @@ export class DespliegueMultipleService {
     try {
       const composeData = this.parseDockerCompose(`${tempDir}/docker-compose.yml`);
       const imagesToBuild = this.dockerImageBuildParameters(composeData);
-
-      return await this.pullImage(proyecto, imagesToBuild, data)
+      await this.kubernetesService.createNamespace(data.namespace)
+      await this.kubernetesService.deployContainers(data.namespace, imagesToBuild)
+      return await this.saveDeployToDB(imagesToBuild, data, proyecto)
     } catch (error) {
       console.error(`Error en buildAndPushMultipleImage: ${error.message}`);
-      return false;
+      throw error
     }
+  }
+
+  private async saveDeployToDB(imagesToBuild: any[], data: CreateDeploymentDto, proyecto: Proyecto) {
+    const deploys: Despliegue[] = []
+    for (const container of imagesToBuild) {
+      const newDeployment = this.despliegueRepo.create(data);
+      newDeployment.nombre = container.name,
+      newDeployment.cant_replicas = 1;
+      newDeployment.puerto = container.port_expose;
+      try {
+        await this.despliegueRepo.save(newDeployment)
+        deploys.push(newDeployment)
+      } catch (error) {
+        throw new InternalServerErrorException(`Error al guardar el despliegue en la base de datos: ${error.message}`);
+      }
+    }
+
+    proyecto.imagenes_deploy = this.imagenesDespliegues;
+    proyecto.puertos_imagenes = this.puertosExposeApps;
+    proyecto.puertos_deploy = this.puertosDespliegues;
+    proyecto.despliegues = deploys;
+    try {
+      await this.proyectoRepo.save(proyecto);
+    } catch(error) {
+      throw new InternalServerErrorException(`Error al guardar el proyecto en la base de datos: ${error.message}`);
+    }
+
+    return deploys
+
   }
 
   /** Crear imágenes en el registro local si el repositorio tiene docker-compose */
