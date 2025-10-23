@@ -2,12 +2,14 @@ import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put } from '@
 import { ApiTags } from '@nestjs/swagger';
 import { CargaService } from '../../services/carga/carga.service';
 import { CreateCargaDto, UpdateCargaDto } from '../../dtos/carga.dto';
+import { K6Service } from '../../../k6/k6.service';
 
 @ApiTags('Carga')
 @Controller('carga')
 export class CargaController {
     constructor(
         private cargaService: CargaService,
+        private k6Service: K6Service,
     ) { }
 
     @Get()
@@ -26,6 +28,17 @@ export class CargaController {
         return this.cargaService.createCarga(payload);
     }
 
+    @Post('experimento')
+    createExperiment(@Body() payload: any) {
+        console.log('Body en controller', payload);
+        try {
+            return this.cargaService.executeExperiment(payload);
+        } catch (error) {
+            console.error(error);
+            return { message: 'Error al ejecutar el experimento' , error: error.message, status: 400 };
+        }
+    }
+    
     @Put(':id')
     updateCarga(
         @Param('id', ParseIntPipe) id: number,

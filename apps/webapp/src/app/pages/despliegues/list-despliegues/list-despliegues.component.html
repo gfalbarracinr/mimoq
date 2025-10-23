@@ -30,8 +30,11 @@
                                 <td>{{ despliegue.namespace }}</td>
 
                                 <td class="botones-container">
-                                    <button class="btn btn-outline-primary btn-xl" type="button"
+                                    <button class="btn btn-outline-primary" type="button"
                                         (click)="desplegar(despliegue)">Desplegar
+                                    </button>
+                                    <button class="btn btn-outline-primary" type="button"
+                                        (click)="goToExperiments(despliegue)"> Experimentos
                                     </button>
                                     <button class="btn btn-outline-dark btn-icon" type="button"
                                         [routerLink]="[ROUTES_APP.VER_DESPLIEGUE, despliegue.nombre_helm]">
@@ -39,7 +42,7 @@
                                     </button>
                                     <button class="btn btn-outline-danger btn-icon" (click)="eliminarDespliegue(despliegue?.nombre_helm || '')">
                                         Eliminar
-                                      </button>
+                                    </button>
                                 </td>
                             </tr>
                             }

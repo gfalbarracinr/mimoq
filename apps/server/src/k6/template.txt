@@ -1,0 +1,62 @@
+import http from 'k6/http';
+import { sleep } from 'k6';
+import { Counter, Rate, Trend } from 'k6/metrics';
+
+// Custom metrics
+const customCounter = new Counter('k6_custom_counter');
+const customRate = new Rate('k6_custom_rate');
+const customTrend = new Trend('k6_custom_trend');
+
+// Experiment metrics
+const experimentCounter = new Counter('k6_experiment_requests');
+const experimentDuration = new Trend('k6_experiment_duration');
+
+export const options = {
+    ${vus}
+    ${duration}
+    ${stages}
+    thresholds: ${thresholds},
+    ext: {
+        loadimpact: {
+            name: '${testName}'
+        }
+    }
+};
+
+// Setup is optional; removed invalid metrics server definition
+export function setup() {
+    console.log('Running setup for test: ${testName}');
+    return {};
+}
+
+export default function () {
+    const startTime = Date.now();
+
+    try {
+        const response = http.${method}('http://${serviceName}:${port}${url}');
+        const duration = Date.now() - startTime;
+
+        // Custom metrics (sin labels para evitar errores)
+        customCounter.add(1);
+        customRate.add(response.status === 200);
+        customTrend.add(duration);
+
+        // Experiment metrics (sin labels para evitar errores)
+        experimentCounter.add(1);
+        experimentDuration.add(duration);
+
+    } catch (error) {
+        const duration = Date.now() - startTime;
+
+        // Custom metrics en caso de error
+        customCounter.add(1);
+        customRate.add(false);
+        customTrend.add(duration);
+
+        // Experiment metrics en caso de error
+        experimentCounter.add(1);
+        experimentDuration.add(duration);
+    }
+
+    sleep(1);
+}

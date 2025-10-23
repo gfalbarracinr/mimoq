@@ -14,6 +14,7 @@ import { enviroments } from './enviroments';
 import { DevtoolsModule } from '@nestjs/devtools-integration';
 import { KubernetesService } from './kubernetes/kubernetes.service';
 import { GitService } from './git/git.service';
+import { K6Module } from './k6/k6.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { GitService } from './git/git.service';
     ProyectoModule,
     ExperimentoModule,
     AuthModule,
+    K6Module,
   ],
   controllers: [AppController],
   providers: [AppService, KubernetesService, GitService],

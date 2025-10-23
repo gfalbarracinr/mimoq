@@ -1,0 +1,19 @@
+grafana:
+  enabled: true
+  adminPassword: admin
+  service:
+    type: ClusterIP
+
+alertmanager:
+  enabled: false
+
+prometheus:
+  prometheusSpec:
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    # Permitir scrapear desde namespace default
+    serviceMonitorNamespaceSelector:
+      matchNames:
+      - default
+    # Permitir scrapear desde cualquier namespace
+    serviceMonitorSelector: {}

@@ -8,7 +8,7 @@ import { ConfigService } from '../../config.service';
 @Injectable({
   providedIn: 'root'
 })
-export class CargaService implements OnInit {
+export class CargaService {
 
   nuevaCarga: CargaInterface = {} as CargaInterface;
   private httpOptions = {
@@ -17,7 +17,11 @@ export class CargaService implements OnInit {
     })
   };
   private urlBackend: string = ''
-  constructor(private httpClient: HttpClient, private configService: ConfigService) { }
+  constructor(private httpClient: HttpClient, private configService: ConfigService) { 
+
+    const config = this.configService.getConfig()
+    this.urlBackend = `http://${config.apiHostname}:3000/api/carga/`
+  }
   
   findAll(): Observable<CargaInterface[]> {
     return this.httpClient.get<CargaInterface[]>(this.urlBackend);
@@ -36,15 +40,15 @@ export class CargaService implements OnInit {
     return this.httpClient.put<CargaInterface>(this.urlBackend, proyecto, this.httpOptions);
   }
 
+  public createExperiment(payload: any): Observable<any> {
+    return this.httpClient.post<any>(this.urlBackend + 'experimento', payload, this.httpOptions);
+  }
+
   setCarga(carga: CargaInterface): void {
     this.nuevaCarga = carga;
   }
 
   getCarga(): CargaInterface {
     return this.nuevaCarga;
-  }
-  ngOnInit(): void {
-    const config = this.configService.getConfig()
-    this.urlBackend = `http://${config.apiHostname}:3000/api/carga/`
   }
 }

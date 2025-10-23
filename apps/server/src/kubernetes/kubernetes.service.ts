@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { KubeConfig, CoreV1Api, V1Namespace, AppsV1Api, V1Deployment, V1Service } from '@kubernetes/client-node';
+import { KubeConfig, CoreV1Api, V1Namespace, AppsV1Api, V1Deployment, V1Service, V1PersistentVolumeClaim } from '@kubernetes/client-node';
 
 
 @Injectable()
@@ -14,6 +14,26 @@ export class KubernetesService {
         this.k8sApi = config.makeApiClient(CoreV1Api)
         this.appsApi = config.makeApiClient(AppsV1Api)
         
+    }
+
+    async createPVC(name: string, namespace: string) {
+      try {
+        const pvc: V1PersistentVolumeClaim = {
+            metadata: { name, namespace },
+            spec: {
+                accessModes: ['ReadWriteOnce'],
+                resources: {
+                    requests: {
+                        storage: '1Gi'
+                    }
+                }
+            }
+        }
+        await this.k8sApi.createNamespacedPersistentVolumeClaim({ namespace, body: pvc});
+      } catch (error) {
+        this.logger.error(`Error creando PVC ${name} en namespace ${namespace}`, error)
+        throw error
+      }
     }
 
     async createNamespace(name: string) {
@@ -54,7 +74,7 @@ export class KubernetesService {
           };
     
           const service: V1Service = {
-            metadata: { name: `${name}-service`, namespace },
+            metadata: { name, namespace },
             spec: {
               selector: { app: name },
               ports: [

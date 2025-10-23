@@ -22,6 +22,7 @@ import { Usuario } from '../usuario/entities/usuario.entity';
 import { ProyectoService } from '../proyecto/services/proyecto/proyecto.service';
 import { UsuarioService } from '../usuario/services/usuario/usuario.service';
 import { RolUsuarioService } from '../usuario/services/rol-usuario/rol-usuario.service';
+import { K6Module } from 'src/k6/k6.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -35,6 +36,7 @@ import { RolUsuarioService } from '../usuario/services/rol-usuario/rol-usuario.s
       Usuario,
       RolUsuario,
     ]),
+    K6Module,
   ],
   providers: [ExperimentoService, CargaService, DespliegueService, MetricaService, AtributoService, SubatributoService, TableroService, ProyectoService, UsuarioService, RolUsuarioService],
   controllers: [ExperimentoController, CargaController, TableroController],

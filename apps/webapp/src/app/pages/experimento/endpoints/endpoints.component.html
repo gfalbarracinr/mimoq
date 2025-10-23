@@ -1,0 +1,7 @@
+<div>
+    @for( endpoint of this.endpoints; track $index) {
+        <a class="endpoint" (click)="navigateTo(endpoint.url)">
+            {{ endpoint.url }}
+        </a>
+    }
+</div>

@@ -3,12 +3,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Carga } from '../../entities/carga.entity';
 import { CreateCargaDto, UpdateCargaDto } from '../../dtos/carga.dto';
+import { K6Service } from 'src/k6/k6.service';
 
 @Injectable()
 export class CargaService {
     constructor(
         @InjectRepository(Carga)
         private cargaRepo: Repository<Carga>,
+        private k6Service: K6Service,
     ) { }
 
     async findAll() {
@@ -66,5 +68,16 @@ export class CargaService {
 
     removeCarga(id: number) {
         return this.cargaRepo.delete(id);
+    }
+
+    async executeExperiment(payload: any) {
+        try {
+            return await this.k6Service.createExperiment(payload);
+        } catch (error) {
+            console.error(error);
+            throw new InternalServerErrorException(
+                `Problemas ejecutando el experimento: ${error}`,
+            );
+        }
     }
 }

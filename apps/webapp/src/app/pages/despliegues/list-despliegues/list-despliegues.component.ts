@@ -95,4 +95,9 @@ export class ListDesplieguesComponent implements OnInit {
       }
     });
   }
+
+  goToExperiments(despliegue: DespliegueG) {
+    this.despliegueService.setDespliegues(despliegue?.despliegues ?? [])
+    this.router.navigate([ROUTES_APP.CREAR_EXPERIMENTO])
+  }
 }

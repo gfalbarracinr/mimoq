@@ -17,6 +17,7 @@ import { VerDespliegueComponent } from './pages/despliegues/ver-despliegue/ver-d
 import { ExperimentoComponent } from './pages/experimento/crear-experimento/experimento.component';
 import { ListExperimentosComponent } from './pages/experimento/list-experimentos/list-experimentos/list-experimentos.component';
 import { VerExperimentoComponent } from './pages/experimento/ver-experimento/ver-experimento.component';
+import { AddEndpointComponent } from './pages/experimento/add-endpoint/add-endpoint.component';
 
 export const routes: Routes = [
     {
@@ -89,7 +90,19 @@ export const routes: Routes = [
             path: 'ver/:id',
             title: 'Ver Experimento',
             component: VerExperimentoComponent
-        },
+          },
+        ]
+    },
+    {   
+        path: 'microservice',
+        title: 'endpoints',
+        canActivate: [authGuard],
+        children: [
+            {
+                path: ':id/endpoint',
+                title: "Add endpoint",
+                component: AddEndpointComponent
+            }  
         ]
     },
     {

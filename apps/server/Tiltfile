@@ -4,6 +4,7 @@ docker_build(
     live_update=[
         sync("./src", "/app/src"),
         run("npm install", trigger=["package.json", "package-lock.json"]),
+        run("npm run build", trigger=["src/**/*.ts", "src/**/*.txt", "nest-cli.json"]),
     ])
 
 k8s_yaml('k8s/postgres-secret.yml')
@@ -12,7 +13,15 @@ k8s_yaml("k8s/deployment.yml")
 
 k8s_yaml("k8s/postgres-deployment.yml")
 
+k8s_yaml("k8s/migration-job.yml")
+
 k8s_yaml("k8s/service-account.yml")
+
+k8s_yaml("k8s/pvc-test-result.yml")
+
+k8s_yaml("k8s/k6-servicemonitor.yml")
+
+k8s_yaml("k8s/centralized-metrics-pod.yml")
 
 k8s_resource("server", port_forwards=['3000:3000'])
 

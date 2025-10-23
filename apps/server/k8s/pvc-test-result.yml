@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-result-shared-pvc
+  namespace: default
+  labels:
+    app: k6-tests
+    type: shared
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi  # Más espacio para todos los usuarios

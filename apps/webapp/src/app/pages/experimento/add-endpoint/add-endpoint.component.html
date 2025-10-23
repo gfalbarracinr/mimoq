@@ -1,0 +1,107 @@
+<section class="page-section" id="contact">
+    <div class="container">
+      <div>
+        <h2 class="section-heading">Configurar Endpoint para despliegue {{ name }}</h2>
+      </div>
+  
+      <form [formGroup]="experimentoForm" (ngSubmit)="onSubmit()" class="row g-3 needs-validation" novalidate>
+        <!-- campos básicos -->
+        <div class="row">
+            <div class="col-md-6">
+            <label for="url" class="form-label">URL del endpoint</label>
+            <input id="url" type="url" formControlName="url" class="form-control" placeholder="/test" />
+            </div>
+    
+            <div class="col-md-6">
+            <label for="metodo" class="form-label">Método HTTP</label>
+            <input id="metodo" type="text" formControlName="metodo" class="form-control" value="GET" />
+
+            </div>
+        </div>
+        <div class="col-md-3">
+          <label for="duracion" class="form-label">Duración</label>
+          <input id="duracion" type="text" formControlName="duracion" class="form-control" placeholder="30s" />
+        </div>
+  
+        <div class="col-md-3">
+          <label for="vus" class="form-label">Usuarios Virtuales (VUs)</label>
+          <input id="vus" type="number" formControlName="vus" class="form-control" min="1" />
+        </div>
+  
+        <!-- thresholds y parametros -->
+        <div class="col-12">
+          <label for="thresholds" class="form-label">Thresholds (JSON)</label>
+          <textarea id="thresholds" formControlName="thresholds" class="form-control" rows="3"
+            placeholder='{"http_req_duration": ["p(95)<500"]}'></textarea>
+        </div>
+  
+        <div class="col-12">
+          <label for="parametros" class="form-label">Parámetros adicionales</label>
+          <textarea id="parametros" formControlName="parametros" class="form-control" rows="2"
+            placeholder="key1=value1&key2=value2"></textarea>
+        </div>
+  
+        <!-- RAMP UP -->
+        <div class="col-12 mt-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="enableRampUp" formControlName="enableRampUp"
+              (change)="toggleRampUp()" />
+            <label class="form-check-label" for="enableRampUp">Habilitar Ramp-up (aumentar gradualmente la carga)</label>
+          </div>
+  
+          <div *ngIf="experimentoForm.get('enableRampUp')?.value" class="border p-3 mt-2 rounded">
+            <h6>Ramp-up Stages (pasos para aumentar carga)</h6>
+  
+            <div formArrayName="rampUpStages">
+              <div *ngFor="let stage of rampUpStages.controls; let i = index" [formGroupName]="i" class="row g-2 align-items-center mb-2">
+                <div class="col-md-6">
+                  <input type="text" formControlName="duration" class="form-control" placeholder="Duración (ej: 2m, 30s)" />
+                </div>
+                <div class="col-md-4">
+                  <input type="number" formControlName="target" class="form-control" placeholder="Usuarios objetivo" min="1" />
+                </div>
+                <div class="col-md-2">
+                  <button type="button" class="btn btn-sm btn-outline-danger" (click)="eliminarRampStage(i)">Eliminar</button>
+                </div>
+              </div>
+            </div>
+  
+            <div class="mt-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="agregarRampStage()">+ Añadir Stage</button>
+              <small class="text-muted ms-2">Ej: pasar de 10 → 50 en 2m, luego a 100 en 4m</small>
+            </div>
+          </div>
+        </div>
+  
+        <!-- COOL DOWN -->
+        <div class="col-12 mt-3">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="enableCoolDown" formControlName="enableCoolDown" />
+            <label class="form-check-label" for="enableCoolDown">Habilitar Cool-down (reducción al final)</label>
+          </div>
+  
+          <div *ngIf="experimentoForm.get('enableCoolDown')?.value" class="border p-3 mt-2 rounded">
+            <h6>Cool-down</h6>
+            <div class="row g-2">
+              <div class="col-md-6">
+                <label class="form-label">Duración de cool-down</label>
+                <input type="text" formControlName="coolDownDuration" class="form-control" placeholder="Ej: 1m, 30s" />
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Objetivo final (opcional)</label>
+                <input type="number" formControlName="coolDownTarget" class="form-control" placeholder="Usuarios objetivo al final" min="0" />
+              </div>
+            </div>
+          </div>
+        </div>
+  
+        <!-- acciones -->
+        <div class="col-12 d-flex justify-content-between mt-3">
+          <button class="btn btn-primary" type="submit">Guardar configuración</button>
+          <button class="btn btn-secondary" type="button" (click)="onReset()">Limpiar</button>
+          <button class="btn btn-danger" type="button" (click)="onDelete()">Eliminar</button>
+        </div>
+      </form>
+    </div>
+  </section>
+  

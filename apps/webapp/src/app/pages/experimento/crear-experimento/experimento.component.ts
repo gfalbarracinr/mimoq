@@ -10,11 +10,16 @@ import { Experimento } from '../../../core/model/experimento/experimento';
 import Swal from 'sweetalert2';
 import { CargaService } from '../../../services/carga/carga.service';
 import { CargaInterface } from '../../../core/interfaces/carga';
+import { ROUTES_APP } from '../../../core/enum/routes.enum';
+import { ExperimentoV2Service } from '../../../services/experimentoV2/experimento-v2.service';
+import { AsyncPipe, NgIf } from '@angular/common';
+import { Observable } from 'rxjs';
+import { EndpointsComponent } from '../endpoints/endpoints.component';
 
 @Component({
   selector: 'app-experimento',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink, NgxPaginationModule],
+  imports: [ReactiveFormsModule, RouterLink, NgxPaginationModule, AsyncPipe, NgIf, EndpointsComponent],
   templateUrl: './experimento.component.html',
   styleUrl: './experimento.component.css'
 })
@@ -48,8 +53,11 @@ export class ExperimentoComponent implements OnInit {
   constructor(private router: Router,
     private experimentoService: ExperimentoService,
     private cargaService: CargaService,
-    private despliegueService: DespliegueService) { }
+    private despliegueService: DespliegueService,
+    public experimentoServiceV2: ExperimentoV2Service
+  ) { }
 
+  endpointsMap = new Map<string, any>();
   ngOnInit(): void {
     this.cargarDespliegues();
     // setTimeout(() => {
@@ -61,6 +69,10 @@ export class ExperimentoComponent implements OnInit {
 
   get cargas() {
     return this.experimentoForm.get('cargas') as FormArray;
+  }
+
+  getCurrentEndpoints(despliegueId: string) {
+    return this.experimentoServiceV2.getEndpoints(despliegueId)
   }
 
   cargarDespliegues() {
@@ -100,24 +112,36 @@ export class ExperimentoComponent implements OnInit {
     });
   }
 
-  // crearCarga() {
-  //   const newCarga: Carga = {
-  //     cant_usuarios: this.cant_usuarios,
-  //     duracion_picos: this.duracion_picos,
-  //     duracion_total:
-  //   }
-  //   this.cargaService.create(newCarga).subscribe({
-  //     next: (res: any) => {
-  //       console.log('Carga creada', res);
-  //       this.carga = res;
-  //       console.log('Carga seteada', this.carga);
-  //     }, error: (error: any) => {
-  //       console.error('Error creando carga', error);
-  //     }
-  //     // console.log(despliegue);
-  //     // this.router.navigateByUrl('/despliegues');
-  //   });
-  // }
+  createExperiment() {
+    this.status = true;
+    console.log(this.experimentoForm.value);
+    console.log('payload', this.experimentoServiceV2.getPayload());
+
+    const payload = this.experimentoServiceV2.buildPayload(this.experimentoForm.value, this.experimentoServiceV2.getPayload());
+    console.log('payload', payload);
+    this.showLoading();
+    this.cargaService.createExperiment(payload).subscribe({
+      next: (res: any) => {
+        console.log('Experimento creado', res);
+        Swal.fire({
+          title: "Experimento creado",
+          text: "¿Deseas seleccionar métricas para este experimento?",
+          icon: "success",
+          showCancelButton: true,
+          confirmButtonColor: "#3085d6",
+          cancelButtonColor: "#d33",
+          confirmButtonText: "Si",
+          cancelButtonText: "No, ver experimentos"
+        }).then((result) => {
+          console.log('result', result);
+        });
+      }, error: (error: any) => {
+        console.error('Error creando el experimento', error);
+        this.hideLoading();
+      }
+    });
+
+  }
 
   crearExperimento() {
     this.status = true;
@@ -269,6 +293,9 @@ export class ExperimentoComponent implements OnInit {
   }
   hideLoading() {
     Swal.close();
+  }
+  addEndpoint(id:number) {
+    this.router.navigate([`/microservice/${id}/endpoint`])
   }
 }
 
