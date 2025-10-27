@@ -45,16 +45,25 @@
    ```
 
 2. **Sync configuration files:**
-   ```bash
-   make sync-kustomize
-   ```
+   
+   Make sure that your files inside kustomize are up to date
 
-3. **Deploy to production:**
+3. **Set up the k6 operator**
+
+   ```bash
+   make setup-k6-operator
+   ```
+4. **Install monitoring**
+   ```bash
+   make install-monitoring values_file=apps/server/k8s/kustomize/base/values-monitoring.yml
+   ```
+   
+5. **Deploy to production:**
    ```bash
    make deploy-prod
    ```
 
-4. **Setup browser access:**
+6. **Setup browser access:**
    ```bash
    make setup-browser-access
    ```

@@ -20,8 +20,8 @@ uninstall-k6-operator:
 	@curl -s $(K6_OPERATOR_BUNDLE) | kubectl delete -f - || true
 
 install-monitoring:
-	@if [ -z "$(values_file)" ]; then
-		values_file=apps/server/k8s/tilt/values-monitoring.yml
+	@if [ -z "$(values_file)" ]; then \
+		values_file=apps/server/k8s/tilt/values-monitoring.yml; \
 	fi
 	@echo "🚀 Installing monitoring..."
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
@@ -85,8 +85,4 @@ clean-test:
 	make uninstall-monitoring
 	kind delete cluster --name mimoq-prod-local || true
 
-sync-kustomize:
-	@echo "🔄 Syncing Kustomize configuration files..."
-	@chmod +x scripts/sync-kustomize.sh
-	@./scripts/sync-kustomize.sh
 
