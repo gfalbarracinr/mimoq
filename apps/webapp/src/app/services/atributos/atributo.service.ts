@@ -14,7 +14,11 @@ export class AtributoService {
 
   constructor(private httpClient: HttpClient, private configService: ConfigService) {
     const config = this.configService.getConfig()
-    this.urlBackend = `http://${config.apiHostname}:3000/api/atributo/`
+    if (config.apiHostname === 'mimoq.local') {
+      this.urlBackend = `http://${config.apiHostname}/api/atributo/`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api/atributo/`
+    }
   }
   findAll(): Observable<AtributoInterface[]> {
     return this.httpClient.get<AtributoInterface[]>(this.urlBackend);

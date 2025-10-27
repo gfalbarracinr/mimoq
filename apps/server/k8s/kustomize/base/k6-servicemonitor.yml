@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: centralized-k6-monitor
+  namespace: default
+  labels:
+    app: centralized-metrics
+    component: k6-experiments
+spec:
+  selector:
+    matchLabels:
+      app: centralized-metrics
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    params:
+      format: ['prometheus']
+  namespaceSelector:
+    matchNames:
+    - default
+  jobLabel: k6-experiment

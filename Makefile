@@ -20,12 +20,15 @@ uninstall-k6-operator:
 	@curl -s $(K6_OPERATOR_BUNDLE) | kubectl delete -f - || true
 
 install-monitoring:
+	@if [ -z "$(values_file)" ]; then
+		values_file=apps/server/k8s/tilt/values-monitoring.yml
+	fi
 	@echo "🚀 Installing monitoring..."
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 	helm repo update
 	helm install monitoring prometheus-community/kube-prometheus-stack \
 	--namespace default \
-	-f apps/server/k8s/values-monitoring.yml
+	-f $(values_file)
 	@echo "✅ Monitoring installed successfully."
 
 uninstall-monitoring:
@@ -33,4 +36,57 @@ uninstall-monitoring:
 	helm uninstall monitoring --namespace default || true
 	@echo "✅ Monitoring uninstalled successfully."
 
+deploy-server-prod:
+	@echo "🚀 Deploying server to production..."
+	@chmod +x apps/server/deploy-prod.sh
+	@./apps/server/deploy-prod.sh
+
+deploy-webapp-prod:
+	@echo "🚀 Deploying webapp to production..."
+	@chmod +x apps/webapp/deploy-prod.sh
+	@./apps/webapp/deploy-prod.sh
+
+deploy-prod: deploy-server-prod deploy-webapp-prod
+	@echo "✅ Full production deployment completed!"
+
+kustomize-server-prod:
+	@echo "🔍 Previewing server production deployment..."
+	kubectl kustomize apps/server/k8s/kustomize/overlays/production/
+
+kustomize-webapp-prod:
+	@echo "🔍 Previewing webapp production deployment..."
+	kubectl kustomize apps/webapp/k8s/kustomize/overlays/production/
+
+test-prod-local:
+	@echo "🧪 Testing production deployment locally..."
+	@chmod +x scripts/test-prod-local.sh
+	@./scripts/test-prod-local.sh
+
+setup-browser-access:
+	@echo "🌐 Setting up browser access for production..."
+	@chmod +x scripts/setup-browser-access.sh
+	@./scripts/setup-browser-access.sh
+
+build-prod:
+	@echo "🏗️ Building production images..."
+	@chmod +x scripts/build-prod.sh
+	@./scripts/build-prod.sh
+
+clean-prod:
+	@echo "🧹 Cleaning production environment..."
+	make uninstall-k6-operator
+	make uninstall-monitoring
+	@echo "🧹 Cleaning production environment..."
+	kubectl delete namespace mimoq-prod || true
+
+clean-test:
+	@echo "🧹 Cleaning test cluster..."
+	make uninstall-k6-operator
+	make uninstall-monitoring
+	kind delete cluster --name mimoq-prod-local || true
+
+sync-kustomize:
+	@echo "🔄 Syncing Kustomize configuration files..."
+	@chmod +x scripts/sync-kustomize.sh
+	@./scripts/sync-kustomize.sh
 

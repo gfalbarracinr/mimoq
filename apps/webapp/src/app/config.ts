@@ -6,6 +6,10 @@ const getConfig = () => {
         return {
             apiHostname: 'localhost',
         };
+    case 'mimoq.local':
+        return {
+            apiHostname: 'mimoq.local',
+        };
     default:
         return {
             apiHostname: 'server',

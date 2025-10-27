@@ -77,6 +77,10 @@ export class ExperimentoService implements OnInit {
 
   ngOnInit(): void {
     const config = this.configService.getConfig()
-    this.urlBackend = `http://${config.apiHostname}:3000/api/experimento/`  
+    if (config.apiHostname === 'mimoq.local') {
+      this.urlBackend = `http://${config.apiHostname}/api/experimento/`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api/experimento/`
+    }
   }
 }

@@ -7,25 +7,34 @@ docker_build(
         run("npm run build", trigger=["src/**/*.ts", "src/**/*.txt", "nest-cli.json"]),
     ])
 
-k8s_yaml('k8s/postgres-secret.yml')
+k8s_yaml('k8s/tilt/postgres-secret.yml')
 
-k8s_yaml("k8s/deployment.yml")
+k8s_yaml("k8s/tilt/deployment.yml")
 
-k8s_yaml("k8s/postgres-deployment.yml")
+k8s_yaml("k8s/tilt/postgres-deployment.yml")
 
-k8s_yaml("k8s/migration-job.yml")
+k8s_yaml("k8s/tilt/migration-job.yml")
 
-k8s_yaml("k8s/service-account.yml")
+k8s_yaml("k8s/tilt/service-account.yml")
 
-k8s_yaml("k8s/pvc-test-result.yml")
+k8s_yaml("k8s/tilt/pvc-test-result.yml")
 
-k8s_yaml("k8s/k6-servicemonitor.yml")
+k8s_yaml("k8s/tilt/k6-servicemonitor.yml")
 
-k8s_yaml("k8s/centralized-metrics-pod.yml")
+k8s_yaml("k8s/tilt/centralized-metrics-pod.yml")
 
-k8s_resource("server", port_forwards=['3000:3000'])
+k8s_resource("server", port_forwards=['3000:3000'],
+    resource_deps=['postgres'],
+    auto_init=True)
 
-k8s_resource("postgres", port_forwards=['5432:5432'])
+k8s_resource("postgres", port_forwards=['5432:5432'],
+    auto_init=True)
+
+k8s_resource("migration-job",
+    resource_deps=['postgres'],
+    auto_init=True)
+
+
 
 
 

@@ -57,6 +57,10 @@ export class LoginComponent implements OnInit {
   }
   ngOnInit(): void {
     const config = this.configService.getConfig()
-    this.urlBackend = `http://${config.apiHostname}:3000/api`
+    if (config.apiHostname === 'mimoq.local') {
+      this.urlBackend = `http://${config.apiHostname}/api`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api`
+    }
   }
 }

@@ -9,8 +9,11 @@ spec:
       containers:
         - name: migration-container
           image: gfalbarracinr/server:latest
-          command: ["npm", "run", "migration:run"]
+          command: ["sh", "-c", "npm run migration:run:prod"]
+          workingDir: /app
           env:
+            - name: NODE_ENV
+              value: production
             - name: DB_HOST
               value: postgres
             - name: DB_PORT

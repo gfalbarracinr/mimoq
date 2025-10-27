@@ -19,7 +19,11 @@ export class ProyectoService {
   private urlBackend: string = ''
   constructor(private httpClient: HttpClient, private configService: ConfigService) { 
     const config = this.configService.getConfig()
-    this.urlBackend = `http://${config.apiHostname}:3000/api/proyecto/`
+    if (config.apiHostname === 'mimoq.local') {
+      this.urlBackend = `http://${config.apiHostname}/api/proyecto/`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api/proyecto/`
+    }
   }
 
   get refresh() {

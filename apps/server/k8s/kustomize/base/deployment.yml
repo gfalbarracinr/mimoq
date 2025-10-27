@@ -20,7 +20,17 @@ spec:
           image: gfalbarracinr/server:latest
           ports:
             - containerPort: 3000
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
           env:
+
+            - name: NODE_ENV
+              value: production
             - name: DB_HOST
               value: postgres
             - name: DB_PORT

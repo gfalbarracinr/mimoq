@@ -12,7 +12,11 @@ export class UsuarioService {
 
   constructor(private httpClient: HttpClient, private configService: ConfigService) {
     const config = this.configService.getConfig()
-    this.urlBackend = `http://${config.apiHostname}:3000/api/usuario/`
+    if (config.apiHostname === 'mimoq.local') {
+      this.urlBackend = `http://${config.apiHostname}/api/usuario/`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api/usuario/`
+    }
   }
   
   private httpOptions = {

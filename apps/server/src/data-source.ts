@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { DataSource } from 'typeorm';
 
 export const AppDataSource = new DataSource({
@@ -10,7 +11,7 @@ export const AppDataSource = new DataSource({
   schema: 'public',
   synchronize: false,
   logging: true,
-  entities: ['dist/**/*.entity.js'],
-  migrations: [ __dirname + '/database/migrations/*{.ts, .js}'],
+  entities: [path.join(__dirname, '**/*.entity.{js,ts}')],
+  migrations: [path.join(__dirname, 'database/migrations/*.{js,ts}')],
   migrationsTableName: 'migrations',
 });

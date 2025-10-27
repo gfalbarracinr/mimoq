@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: centralized-metrics-collector
+  namespace: default
+  labels:
+    app: centralized-metrics
+    component: metrics-collector
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '9090'
+    prometheus.io/path: '/metrics'
+spec:
+  containers:
+  - name: metrics-collector
+    image: prom/node-exporter:latest
+    ports:
+    - containerPort: 9090
+      name: metrics
+    env:
+    - name: METRICS_PATH
+      value: "/metrics"
+    volumeMounts:
+    - name: metrics-storage
+      mountPath: /metrics-data
+    - name: config
+      mountPath: /etc/metrics-config
+  - name: k6-metrics-processor
+    image: grafana/k6:latest
+    command: ["/bin/sh"]
+    args:
+    - -c
+    - |
+      while true; do
+        # Procesar métricas de K6 de todos los namespaces
+        find /metrics-data -name "*.json" -type f | while read file; do
+          echo "Processing metrics from: $file"
+          # Aquí se procesarían las métricas y se enviarían a Prometheus
+        done
+        sleep 30
+      done
+    volumeMounts:
+    - name: metrics-storage
+      mountPath: /metrics-data
+    - name: shared-metrics
+      mountPath: /shared-metrics
+  volumes:
+  - name: metrics-storage
+    persistentVolumeClaim:
+      claimName: centralized-metrics-pvc
+  - name: config
+    configMap:
+      name: metrics-config
+  - name: shared-metrics
+    emptyDir: {}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: centralized-metrics-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metrics-config
+  namespace: default
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    
+    scrape_configs:
+    - job_name: 'k6-experiments'
+      kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['default']
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: k6-tests
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - action: labelmap
+        regex: __meta_kubernetes_namespace
+        target_label: kubernetes_namespace
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: centralized-metrics-service
+  namespace: default
+  labels:
+    app: centralized-metrics
+spec:
+  selector:
+    app: centralized-metrics
+  ports:
+  - name: metrics
+    port: 9090
+    targetPort: 9090
