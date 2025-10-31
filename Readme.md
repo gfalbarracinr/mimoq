@@ -107,5 +107,77 @@ After deployment:
 - **API**: `http://mimoq.local/api`
 - **Monitoring**: Configure port-forward to access Prometheus/Grafana
 
+## Updating Individual Components in production (on-premise cluster)
+
+### Update Server Only (code changes)
+
+When you change server code (files in `apps/server/src/`), you need to rebuild the image and update the deployment:
+
+1. **Build the new image:**
+   ```bash
+   docker build -f apps/server/Dockerfile.prod -t gfalbarracinr/server:latest apps/server/
+   ```
+
+2. **Push the image to registry** (if applicable):
+   ```bash
+   docker push gfalbarracinr/server:latest
+   ```
+
+3. **Restart the deployment to apply changes:**
+   ```bash
+   kubectl rollout restart deployment/server -n mimoq-prod
+   kubectl rollout status deployment/server -n mimoq-prod --timeout=5m
+   ```
+
+   To verify status:
+   ```bash
+   kubectl get pods -n mimoq-prod -l app=server
+   kubectl logs -n mimoq-prod -l app=server --tail=50
+   ```
+
+### Update Webapp Only (code changes)
+
+When you change webapp code (files in `apps/webapp/src/`), you need to rebuild the image and update the deployment:
+
+1. **Build the new image:**
+   ```bash
+   docker build -f apps/webapp/Dockerfile -t gfalbarracinr/webapp:latest apps/webapp/
+   ```
+
+2. **Push the image to registry** (if applicable):
+   ```bash
+   docker push gfalbarracinr/webapp:latest
+   ```
+
+3. **Restart the deployment to apply changes:**
+   ```bash
+   kubectl rollout restart deployment/webapp -n mimoq-prod
+   kubectl rollout status deployment/webapp -n mimoq-prod --timeout=5m
+   ```
+
+   To verify status:
+   ```bash
+   kubectl get pods -n mimoq-prod -l app=webapp
+   kubectl logs -n mimoq-prod -l app=webapp --tail=50
+   ```
+
+### Update Kubernetes Manifests Only
+
+When you change Kubernetes configuration files (`.yml` files in `k8s/kustomize/`), you only need to apply the changes:
+
+**For the server:**
+```bash
+cd apps/server
+kubectl apply -k k8s/kustomize/overlays/production/
+cd ../..
+```
+
+**For the webapp:**
+```bash
+cd apps/webapp
+kubectl apply -k k8s/kustomize/overlays/production/
+cd ../..
+```
+
 
 
