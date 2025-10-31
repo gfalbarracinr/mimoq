@@ -6,13 +6,17 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "*"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "false"
 spec:
   ingressClassName: nginx
   rules:
   - host: mimoq.local
     http:
       paths:
-      # API routes - must come first (more specific)
       - path: /api
         pathType: Prefix
         backend:
@@ -20,11 +24,10 @@ spec:
             name: server
             port:
               number: 3000
-      # Webapp routes - catch all (less specific)
       - path: /
         pathType: Prefix
         backend:
           service:
             name: webapp
             port:
-              number: 4200
+              number: 80

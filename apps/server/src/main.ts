@@ -5,7 +5,15 @@ import { AppModule } from './app.module';
 import { json } from 'body-parser';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {cors: true, snapshot: true});
+  const app = await NestFactory.create(AppModule, {
+    cors: {
+      origin: '*',
+      methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+      credentials: false,
+      allowedHeaders: '*',
+    },
+    snapshot: true
+  });
   app.setGlobalPrefix('api');
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
   app.use(json({ limit: '50mb' }));
