@@ -11,8 +11,9 @@ const getConfig = () => {
             apiHostname: 'mimoq.local',
         };
     default:
+        // production on-premise cluster
         return {
-            apiHostname: 'server',
+            apiHostname: hostname,
         };
         
    }

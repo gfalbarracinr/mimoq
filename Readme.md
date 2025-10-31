@@ -125,14 +125,14 @@ When you change server code (files in `apps/server/src/`), you need to rebuild t
 
 3. **Restart the deployment to apply changes:**
    ```bash
-   kubectl rollout restart deployment/server -n mimoq-prod
-   kubectl rollout status deployment/server -n mimoq-prod --timeout=5m
+   kubectl rollout restart deployment/server
+   kubectl rollout status deployment/server --timeout=5m
    ```
 
    To verify status:
    ```bash
-   kubectl get pods -n mimoq-prod -l app=server
-   kubectl logs -n mimoq-prod -l app=server --tail=50
+   kubectl get pods -l app=server
+   kubectl logs -l app=server --tail=50
    ```
 
 ### Update Webapp Only (code changes)
@@ -151,14 +151,14 @@ When you change webapp code (files in `apps/webapp/src/`), you need to rebuild t
 
 3. **Restart the deployment to apply changes:**
    ```bash
-   kubectl rollout restart deployment/webapp -n mimoq-prod
-   kubectl rollout status deployment/webapp -n mimoq-prod --timeout=5m
+   kubectl rollout restart deployment/webapp
+   kubectl rollout status deployment/webapp --timeout=5m
    ```
 
    To verify status:
    ```bash
-   kubectl get pods -n mimoq-prod -l app=webapp
-   kubectl logs -n mimoq-prod -l app=webapp --tail=50
+   kubectl get pods -l app=webapp
+   kubectl logs -l app=webapp --tail=50
    ```
 
 ### Update Kubernetes Manifests Only
