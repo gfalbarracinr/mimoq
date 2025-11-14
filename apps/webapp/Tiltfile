@@ -1,37 +1,12 @@
-# --- Build Configuration ---
 docker_build(
     'gfalbarracinr/webapp',
     '.',
-    dockerfile='Dockerfile.dev',
-    live_update=[
-        # 1️⃣ Sync only necessary app files
-        sync('./src', '/app/src'),
-
-        # 2️⃣ Automatically re-install dependencies if package files change
-        run('npm ci --legacy-peer-deps', trigger=['package.json', 'package-lock.json']),
-
-        # 3️⃣ Trigger rebuild on configuration file changes
-        run('npm run build', trigger=[
-            'angular.json',
-            'tsconfig*.json',
-        ]),
-    ],
-    # 4️⃣ Ignore unnecessary directories/files for faster sync
-    ignore=['node_modules', '.git', 'dist', '*.log', '*.tmp', '*.cache']
+    dockerfile='Dockerfile',
 )
 
-# --- Kubernetes Resources ---
 k8s_yaml('./k8s/tilt/deployment.yml')
 
 k8s_resource(
     'webapp',
-    port_forwards=['4200:4200'],
+    port_forwards=['4200:80'],
 )
-
-# --- Optional: Tilt Optimizations ---
-# Automatically detect changes in Dockerfile.dev or Tiltfile and rebuild
-watch_file('Dockerfile.dev')
-watch_file('Tiltfile')
-
-# Log info to make debugging easier
-print('✅ Tilt is watching your Angular app. Changes to src/ sync instantly!')

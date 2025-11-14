@@ -1,8 +1,5 @@
-###########################
-## UN POD POR CONTENEDOR ##
-###########################
 
-### Validar que el namespace no exista
+
 {{- $namespace := .Values.namespace }}
 {{- $autoscaling := .Values.autoscaling }}
 {{- $minReplicas := .Values.minReplicas }}
@@ -42,7 +39,7 @@ spec:
       containers:
       - name: {{ $appName }}
         image: "{{ index $.Values.image $index "name" }}"
-        # imagePullPolicy: IfNotExist
+
         ports:
           - containerPort: {{ index (index $.Values.image $index) "portExpose" }}
         resources:

@@ -7,7 +7,6 @@ resources:
 patchesStrategicMerge:
   - server-patch.yml
 
-
 labels:
   - pairs:
       environment: production

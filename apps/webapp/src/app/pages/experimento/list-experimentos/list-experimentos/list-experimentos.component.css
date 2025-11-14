@@ -188,7 +188,6 @@ table {
   font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
-/* Cambiar el color de fondo y el color del texto del encabezado de la tabla */
 .experimento-list thead {
   background-color: #212529;
   color: white;
@@ -208,4 +207,15 @@ table {
 
 .custom-list {
 list-style-type: "-";
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-left: 8px;
+  vertical-align: middle;
+  border: 2px solid white;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
 }

@@ -22,7 +22,6 @@ export class GitService {
             throw error
         }
 
-
     }
 
     private getTargetDir(repoName: string) {

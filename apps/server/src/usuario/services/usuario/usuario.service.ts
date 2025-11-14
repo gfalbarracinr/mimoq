@@ -79,7 +79,7 @@ export class UsuarioService {
       const newUser = this.usuarioRepo.create(data);
       
       this.logger.log("Validando contraseña del usuario")
-      // Validar que la contraseña existe
+      
       if (!newUser.contrasena) {
         this.logger.warn("La contraseña es requerida")
         throw new InternalServerErrorException('La contraseña es requerida');
@@ -133,14 +133,13 @@ export class UsuarioService {
         throw new InternalServerErrorException(`Usuario con id ${id} no encontrado`);
       }
 
-      // Manejo seguro del rol
       if ('fk_id_rol_usuario' in cambios && cambios.fk_id_rol_usuario) {
         const rol = await this.rolUsuarioService.findOne((cambios as any).fk_id_rol_usuario);
         if (!rol) {
           throw new InternalServerErrorException(`Rol con id ${(cambios as any).fk_id_rol_usuario} no encontrado`);
         }
         user.rol = rol;
-        // Omitir merge del campo fk_id_rol_usuario para prevenir error de propiedad inexistente
+        
         const { fk_id_rol_usuario, ...rest } = cambios as any;
         this.usuarioRepo.merge(user, rest);
       } else {
@@ -172,7 +171,6 @@ export class UsuarioService {
     user.contrasena = hashPassword;
     return this.usuarioRepo.save(user);
   }
-
 
   removeUser(id: number) {
     return this.usuarioRepo.delete(id);

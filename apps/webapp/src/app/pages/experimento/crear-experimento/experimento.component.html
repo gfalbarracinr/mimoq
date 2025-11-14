@@ -39,7 +39,7 @@
           </div>
 
           <label for="inputDescription4" class="section-label">Elige los Microservicios del experimento </label>
-          <!-- <div formArrayName="cargas"> -->
+          
           <div formGroupName="cargaForm">
             <table class="proyecto-list table table-striped">
               <thead>
@@ -76,12 +76,222 @@
                 nextLabel="Siguiente"></pagination-controls>
             </div>
           </div>
-          <div class="col-12 d-flex justify-content-between mt-3">
+          
+          <div class="col-12 mt-4 mb-4">
             <div class="text-center form-conent">
-              <button type="submit" class="btn btn-danger btn-xl">
-                Añadir inyección de fallos
+              <button type="button" class="btn btn-danger btn-xl" (click)="toggleChaosForm()">
+                {{ showChaosForm ? 'Ocultar' : 'Añadir' }} inyección de fallos
               </button>
             </div>
+
+            @if (showChaosForm) {
+              <div class="card mt-3" style="background-color: #f8f9fa;">
+                <div class="card-body">
+                  <h5 class="card-title section-label mb-3">Configurar Experimento de Caos</h5>
+                  <form [formGroup]="chaosForm">
+                    <div class="row">
+                      <div class="col-md-6">
+                        <div class="form-group">
+                          <label class="section-label" for="chaosType">Tipo de Caos</label>
+                          <select formControlName="type" class="form-control" id="chaosType" (change)="onChaosTypeChange()">
+                            <option value="">Seleccione un tipo</option>
+                            @for (type of chaosTypes; track type) {
+                              <option [value]="type">{{ type }}</option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="form-group">
+                          <label class="section-label" for="chaosMicroservice">Microservicio</label>
+                          <select formControlName="selectedMicroservice" class="form-control" 
+                            id="chaosMicroservice" (change)="onMicroserviceChange()">
+                            <option value="">Seleccione un microservicio</option>
+                            @for (despliegue of despliegues; track despliegue.id_despliegue) {
+                              <option [value]="despliegue.id_despliegue">{{ despliegue.nombre }} ({{ despliegue.namespace }})</option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="row">
+                      <div class="col-md-4">
+                        <div class="form-group">
+                          <label class="section-label" for="chaosMode">Modo</label>
+                          <select formControlName="mode" class="form-control" id="chaosMode">
+                            @for (mode of chaosModes; track mode) {
+                              <option [value]="mode">{{ mode }}</option>
+                            }
+                          </select>
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <div class="form-group">
+                          <label class="section-label" for="chaosValue">Valor (para fixed/fixed-percent)</label>
+                          <input type="number" formControlName="value" class="form-control" 
+                            id="chaosValue" placeholder="1" />
+                        </div>
+                      </div>
+                      <div class="col-md-4">
+                        <div class="form-group">
+                          <label class="section-label">Duración</label>
+                          <div class="alert alert-info" style="margin-bottom: 0; padding: 8px 12px; font-size: 0.9em;">
+                            <i class="bi bi-info-circle"></i> Se sincronizará automáticamente con la duración del test de K6
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="row">
+                      <div class="col-md-12">
+                        <div class="form-group">
+                          <label class="section-label" for="chaosName">Nombre (opcional)</label>
+                          <input type="text" formControlName="name" class="form-control" 
+                            id="chaosName" placeholder="Nombre del experimento" />
+                          <small class="form-text text-muted">Si no se especifica, se generará automáticamente</small>
+                        </div>
+                      </div>
+                    </div>
+
+                    @if (selectedChaosType === 'network-delay') {
+                      <div class="row mt-3" style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
+                        <h6 class="section-label mb-3">Configuración de Retraso de Red</h6>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label class="section-label" for="networkDelayLatency">Latencia (ms)</label>
+                            <input type="text" formControlName="networkDelayLatency" class="form-control" 
+                              id="networkDelayLatency" placeholder="1000" />
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label class="section-label" for="networkDelayJitter">Jitter (ms, opcional)</label>
+                            <input type="text" formControlName="networkDelayJitter" class="form-control" 
+                              id="networkDelayJitter" placeholder="100" />
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label class="section-label" for="networkDelayCorrelation">Correlación (%, opcional)</label>
+                            <input type="text" formControlName="networkDelayCorrelation" class="form-control" 
+                              id="networkDelayCorrelation" placeholder="50" />
+                          </div>
+                        </div>
+                      </div>
+                    }
+
+                    @if (selectedChaosType === 'network-loss') {
+                      <div class="row mt-3" style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
+                        <h6 class="section-label mb-3">Configuración de Pérdida de Red</h6>
+                        <div class="col-md-6">
+                          <div class="form-group">
+                            <label class="section-label" for="networkLossLoss">Pérdida (%)</label>
+                            <input type="text" formControlName="networkLossLoss" class="form-control" 
+                              id="networkLossLoss" placeholder="50" />
+                          </div>
+                        </div>
+                        <div class="col-md-6">
+                          <div class="form-group">
+                            <label class="section-label" for="networkLossCorrelation">Correlación (%, opcional)</label>
+                            <input type="text" formControlName="networkLossCorrelation" class="form-control" 
+                              id="networkLossCorrelation" placeholder="50" />
+                          </div>
+                        </div>
+                      </div>
+                    }
+
+                    @if (selectedChaosType === 'network-bandwidth') {
+                      <div class="row mt-3" style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
+                        <h6 class="section-label mb-3">Configuración de Ancho de Banda</h6>
+                        <div class="col-md-12">
+                          <div class="form-group">
+                            <label class="section-label" for="networkBandwidthRate">Tasa (ej: 1mbps)</label>
+                            <input type="text" formControlName="networkBandwidthRate" class="form-control" 
+                              id="networkBandwidthRate" placeholder="1mbps" />
+                          </div>
+                        </div>
+                      </div>
+                    }
+
+                    @if (isStressType(selectedChaosType)) {
+                      <div class="row mt-3" style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
+                        <h6 class="section-label mb-3">Configuración de Estrés</h6>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label class="section-label" for="stressWorkers">Workers</label>
+                            <input type="number" formControlName="stressWorkers" class="form-control" 
+                              id="stressWorkers" placeholder="4" />
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label class="section-label" for="stressLoad">Carga (%)</label>
+                            <input type="number" formControlName="stressLoad" class="form-control" 
+                              id="stressLoad" placeholder="80" />
+                          </div>
+                        </div>
+                        <div class="col-md-4">
+                          <div class="form-group">
+                            <label class="section-label" for="stressDuration">Duración (ej: 60s)</label>
+                            <input type="text" formControlName="stressDuration" class="form-control" 
+                              id="stressDuration" placeholder="60s" />
+                          </div>
+                        </div>
+                      </div>
+                    }
+
+                    <div class="text-center form-conent mt-3">
+                      <button type="button" class="btn btn-success btn-xl" (click)="addChaosExperiment()">
+                        Añadir Experimento de Caos
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            }
+
+            @if (chaosExperiments.length > 0) {
+              <div class="card mt-3">
+                <div class="card-body">
+                  <h5 class="card-title section-label mb-3">Experimentos de Caos Añadidos ({{ chaosExperiments.length }})</h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped">
+                      <thead>
+                        <tr>
+                          <th>Tipo</th>
+                          <th>Namespace</th>
+                          <th>Selector</th>
+                          <th>Duración</th>
+                          <th>Modo</th>
+                          <th>Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        @for (experiment of chaosExperiments; track $index) {
+                          <tr>
+                            <td>{{ experiment.type }}</td>
+                            <td>{{ experiment.namespace }}</td>
+                            <td>{{ formatSelector(experiment.selector) }}</td>
+                            <td>{{ experiment.duration }}</td>
+                            <td>{{ experiment.mode }}</td>
+                            <td>
+                              <button type="button" class="btn btn-sm btn-danger" 
+                                (click)="removeChaosExperiment($index)">
+                                Eliminar
+                              </button>
+                            </td>
+                          </tr>
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <div class="col-12 d-flex justify-content-end mt-3">
             <div class="text-center form-conent">
               <button type="submit" class="btn btn-primary btn-xl" (click)="createExperiment()">
                 <a class="btn btn-primary btn-xl">

@@ -62,7 +62,6 @@ export class TableroService {
       }
     }
 
-
     async loadPanelsInfra(nombre_experimento: string) {
       try {
         const dashboardSearchResponse = await axios.get(`http://admin:prom-operator@localhost:8080/api/search?query=dash-${nombre_experimento}-infra`, {
@@ -83,7 +82,6 @@ export class TableroService {
         });
         const panelsInfo = dashboardInfoResponse.data.dashboard.panels.map((panel: any) => panel.id);
 
-        // Construir los iframes para cada panel
         const iframes = panelsInfo.map((panelId: string) =>
           `<iframe src="http://localhost:8080/d-solo/${dashboardUid}/panelexportatepls?orgId=1&refresh=5s&panelId=${panelId}" width="450" height="200" frameborder="0"></iframe>`
         );

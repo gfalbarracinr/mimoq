@@ -22,7 +22,7 @@ header.masthead {
     line-height: 2.25rem;
     font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
   }
-  /* home */
+  
   @media (min-width: 568px) {
     header.masthead {
       padding-top: 2rem;

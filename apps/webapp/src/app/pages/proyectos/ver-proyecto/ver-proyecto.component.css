@@ -213,7 +213,6 @@ table {
     "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
-/* Cambiar el color de fondo y el color del texto del encabezado de la tabla */
 .proyecto-list thead {
   background-color: #212529;
   color: white;
@@ -233,28 +232,25 @@ table {
 }
 
 .btn-icon svg {
-  margin-right: 5px; /* Ajusta el margen según sea necesario */
+  margin-right: 5px; 
 }
-/* Estilo para el div contenedor */
+
 .contenedor {
   background-color: white;
   border-radius: 10px;
   padding: 20px;
 }
 
-/* Estilo para las etiquetas strong */
 .contenedor strong {
   display: block;
   margin-bottom: 10px;
 }
 
-/* Estilo para las listas ul */
 .contenedor ul {
   list-style-type: none;
   padding: 0;
 }
 
-/* Estilo para las tablas */
 .contenedor .proyecto-list {
   width: 100%;
   border-collapse: collapse;

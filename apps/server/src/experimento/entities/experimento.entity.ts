@@ -29,6 +29,18 @@ export class Experimento {
     @Column('varchar', { array: true, nullable: true })
     tiempo_escalado: string[];
 
+    @Column({ type: 'varchar', length: 50, nullable: true })
+    tipo_chaos: string; 
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    namespace: string; 
+
+    @Column({ type: 'jsonb', nullable: true })
+    configuracion_chaos: Record<string, any>; 
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    experiment_id: string; 
+
     @ManyToOne(() => Carga, (carga) => carga.experimentos)
     @JoinColumn({ name: 'fk_id_carga' })
     carga: Carga;

@@ -7,7 +7,6 @@ export class RolUsuario {
     @Column({ type: 'varchar', length: 50 })
     nombre: string;
 
-    //Relaciones
     @OneToMany(() => Usuario, (usuario) => usuario.rol)
     usuarios: Usuario[];
 }

@@ -31,8 +31,6 @@ echo "Monitoreando el número de pods..."
 
 while true; do
     new_running_pods=$(get_running_pods)
-    # echo "new_running_pods: $new_running_pods"
-    # echo "running_pods: $running_pods"
     if (( $new_running_pods > $running_pods )); then
         end_time=$(date "+%Y-%m-%d %H:%M:%S.%3N")
         echo "Se detectó un nuevo pod: $end_time"

@@ -1,18 +1,18 @@
-/** NestJS */
+
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-/** Dtos */
+
 import { CreateDeploymentDto } from '../../dtos/despliegue.dto';
-/** Entities */
+
 import { Proyecto } from '../../entities/proyecto.entity';
 import { Despliegue } from '../../entities/despliegue.entity';
-/** Services */
+
 import { ProyectoService } from '../proyecto/proyecto.service';
-/** Utils */
+
 import * as fs from 'fs-extra';
 import { DespliegueService } from '../despliegue/despliegue.service';
-/** Repositorio que tiene sólo un microservicio */
+
 @Injectable()
 export class DespliegueIndividualService {
     private imagenesDespliegues: string[] = [];
@@ -57,21 +57,9 @@ export class DespliegueIndividualService {
             await this.despliegueUtilsService.executeCommand(pruneCommand);
             console.log('Imágenes "none" eliminadas correctamente');
 
-            // const tagCommand = `docker tag ${nombreCompletoImagen} ${this.localRegistry}/${nombreCompletoImagen}`;
-            // await this.despliegueUtilsService.executeCommand(tagCommand);
-            // console.log(`Imagen Docker etiquetada correctamente`);
-
             const removeBuildCommand = `docker image rm ${nombreCompletoImagen}`;
             await this.despliegueUtilsService.executeCommand(removeBuildCommand);
             console.log(`Imagen Docker original eliminada correctamente`);
-
-            // const pushCommand = `docker push ${this.localRegistry}/${nombreCompletoImagen}`;
-            // await this.despliegueUtilsService.executeCommand(pushCommand);
-            // console.log(`Imagen Docker subida correctamente al registry local`);
-
-            // const loadImageMinikube = `minikube image load ${nombreCompletoImagen}`;
-            // await this.despliegueUtilsService.executeCommand(loadImageMinikube);
-            // console.log(`Imagen cargada en minikube correctamente`);
 
             this.nombresDespliegues.push('mimoq-' + nombreCompletoImagen);
 
@@ -83,7 +71,7 @@ export class DespliegueIndividualService {
             this.imagenesDespliegues.push(nombreCompletoImagen);
             this.puertosDespliegues.push(await this.despliegueUtilsService.findAvailablePort());
             this.puertosExposeApps.push(port_expose);
-            // this.imagenesRepository.push(imageLocalRegistry);
+            
         }
 
         console.log(this.imagenesDespliegues);
@@ -105,7 +93,7 @@ export class DespliegueIndividualService {
             const newDeployment = this.despliegueRepo.create(data);
             newDeployment.proyecto = proyecto;
             newDeployment.puerto = this.puertosDespliegues[i];
-            // newDeployment.label_despliegue_k8s = this.nombresDespliegues[i];
+            
             try {
                 await this.despliegueRepo.save(newDeployment)
             } catch (error) {

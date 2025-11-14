@@ -11,6 +11,6 @@ export class TableroController {
 
   @Get('descargar/:nombre_experimento/:nombre_despliegue')
   descargarArchivo(@Param('nombre_experimento') nombre_experimento: string, @Param('nombre_despliegue') nombre_despliegue: string) {
-    // return this.tableroService.loadDashboard(nombre_experimento, nombre_despliegue);
+    
   }
 }

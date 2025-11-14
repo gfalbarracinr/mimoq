@@ -38,7 +38,7 @@ export class ProyectosComponent implements OnInit {
       url: new FormControl('')
     }),
     haveDockerfiles: new FormControl(false, [Validators.required]),
-    // nameAplication: new FormControl('', [Validators.required, Validators.pattern(this.noTildesPattern)])
+    
   });
   constructor(private router:Router,
     private proyectoService: ProyectoService,
@@ -46,7 +46,7 @@ export class ProyectosComponent implements OnInit {
   ){}
   ngOnInit(): void {
     console.log("controls",this.urlsRepositorios.controls);
-    // console.log("controls2",this.urlsRepositorios.at(0).get('nombre'));
+    
   }
   async crearProyecto(): Promise<void> {
     this.loading = true;
@@ -111,7 +111,7 @@ export class ProyectosComponent implements OnInit {
         }
       });
     }
-    // this.proyectoService.create(this.proyecto)
+    
   }
   get urlsRepositorios() {
     return this.proyectoForm.get('urlsRepositorios') as FormArray;
@@ -166,34 +166,3 @@ function noTildesValidator(control: FormControl) {
   return null;
 }
 
-// addUrl() {
-//   const formGroup = document.createElement('div');
-//   formGroup.className = 'form-group form-url';
-//   formGroup.innerHTML = `
-//     <label for="inputUrlrepo${document.querySelectorAll('.form-url').length + 1}" class="section-label">Url repositorio</label>
-//     <input
-//       type="url"
-//       formControlName="repositorio"
-//       placeholder="Repositorio"
-//       id="inputUrlrepo${document.querySelectorAll('.form-url').length + 1}"
-//       class="form-control"
-//     />
-//     <div class="invalid-feedback">
-//       Url requerido
-//     </div>
-//   `;
-//   const btnGroup = document.querySelector('.btn-group');
-//   if (btnGroup) {
-//     btnGroup.before(formGroup);
-//   }
-// }
-
-// deleteUrl() {
-//   const formUrls = document.getElementsByClassName('form-url');
-//   if (formUrls.length > 1) {
-//     const lastFormUrl = formUrls[formUrls.length - 1];
-//     if (lastFormUrl) {
-//       lastFormUrl.remove();
-//     }
-//   }
-// }

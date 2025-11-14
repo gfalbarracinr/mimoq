@@ -75,12 +75,12 @@ section#contact form#contactForm :-ms-input-placeholder {
 }
 
 .iframe-wrapper {
-  align-items: center; /* Centra los elementos verticalmente */
-  flex: 1 1 auto; /* Flex-grow, flex-shrink, flex-basis */
-  margin: 10px; /* Espacio entre los iframes */
+  align-items: center; 
+  flex: 1 1 auto; 
+  margin: 10px; 
 }
 #miBoton {
   margin: 15px;
-  align-self: flex-start; /* Alinea el botón hacia arriba */
-  /* Para alinear el botón hacia abajo, puedes usar: align-self: flex-end; */
+  align-self: flex-start; 
+  
 }

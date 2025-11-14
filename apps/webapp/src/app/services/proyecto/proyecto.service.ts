@@ -31,7 +31,7 @@ export class ProyectoService {
   }
 
   findAll(): Observable<ProyectoInterface[]> {
-    return this.httpClient.get<ProyectoInterface[]>(this.urlBackend); //of convierte a Observable
+    return this.httpClient.get<ProyectoInterface[]>(this.urlBackend); 
   }
   findById(id: number): Observable<ProyectoInterface> {
     return this.httpClient.get<ProyectoInterface>(this.urlBackend + `${id}`);

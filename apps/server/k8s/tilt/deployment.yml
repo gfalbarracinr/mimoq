@@ -50,5 +50,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
-                  key: POSTGRES_DB  
+                  key: POSTGRES_DB
+          volumeMounts:
+            - name: test-result-storage
+              mountPath: /test-result
+      volumes:
+        - name: test-result-storage
+          persistentVolumeClaim:
+            claimName: test-result-shared-pvc
   

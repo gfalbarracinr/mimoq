@@ -13,8 +13,8 @@ import { CargaInterface } from '../../../core/interfaces/carga';
 import { ROUTES_APP } from '../../../core/enum/routes.enum';
 import { ExperimentoV2Service } from '../../../services/experimentoV2/experimento-v2.service';
 import { AsyncPipe, NgIf } from '@angular/common';
-import { Observable } from 'rxjs';
 import { EndpointsComponent } from '../endpoints/endpoints.component';
+import { ChaosType, ChaosMode, CreateChaosExperimentDto } from '../../../core/interfaces/chaos';
 
 @Component({
   selector: 'app-experimento',
@@ -29,13 +29,19 @@ export class ExperimentoComponent implements OnInit {
   despliegue: DespliegueInterface = {} as DespliegueInterface;
   ids_despliegues: number[] = []
   inputHabilitado = false;
-  // ids_metricas: number[] = [2,3]
+  
   carga: CargaInterface = {} as CargaInterface;
   cant_usuarios: string[] = [];
   duracion_picos: string[] = [];
   despliegues: DespliegueInterface[] = [];
   endpoints: string[] = [];
   status: boolean = false;
+  showChaosForm: boolean = false;
+  chaosExperiments: CreateChaosExperimentDto[] = [];
+
+  chaosTypes = Object.values(ChaosType);
+  chaosModes = Object.values(ChaosMode);
+  selectedChaosType: ChaosType | null = null;
 
   experimentoForm = new FormGroup({
     nombre: new FormControl('', [Validators.required]),
@@ -47,10 +53,33 @@ export class ExperimentoComponent implements OnInit {
       vus: new FormControl('', [Validators.required, Validators.pattern("^\\d+(,\\d+)*$")]),
       picos: new FormControl('', [Validators.required, Validators.pattern("^\\d+[sm](,\\d+[sm])*$")])
     }, [Validators.required]),
-    cargas: new FormArray([])
+    cargas: new FormArray([]),
+    chaosForm: new FormGroup({
+      type: new FormControl('', [Validators.required]),
+      selectedMicroservice: new FormControl('', [Validators.required]),
+      namespace: new FormControl('default'), 
+      selector: new FormControl(''), 
+      mode: new FormControl(ChaosMode.ONE),
+      value: new FormControl(''),
+
+      networkDelayLatency: new FormControl(''),
+      networkDelayJitter: new FormControl(''),
+      networkDelayCorrelation: new FormControl(''),
+      
+      networkLossLoss: new FormControl(''),
+      networkLossCorrelation: new FormControl(''),
+      
+      networkBandwidthRate: new FormControl(''),
+      
+      stressWorkers: new FormControl(''),
+      stressLoad: new FormControl(''),
+      stressDuration: new FormControl(''),
+      name: new FormControl('')
+    })
   });
 
-  constructor(private router: Router,
+  constructor(
+    private router: Router,
     private experimentoService: ExperimentoService,
     private cargaService: CargaService,
     private despliegueService: DespliegueService,
@@ -60,11 +89,11 @@ export class ExperimentoComponent implements OnInit {
   endpointsMap = new Map<string, any>();
   ngOnInit(): void {
     this.cargarDespliegues();
-    // setTimeout(() => {
+    
       console.log('Microservicios', this.despliegues)
       this.cargarMicroservicios();
       console.log('La espera ha terminado');
-    // }, 6000);
+    
   }
 
   get cargas() {
@@ -78,35 +107,16 @@ export class ExperimentoComponent implements OnInit {
   cargarDespliegues() {
     this.despliegues = this.despliegueService.getDespliegue();
     console.log('Despliegues', this.despliegues);
-    this.nombre_despliegue = "" //this.despliegueService.getDespliegue()?[0].nombre_helm || '';
+    this.nombre_despliegue = "" 
     console.log('ID id_despliegue', this.nombre_despliegue);
-    // this.despliegueService.findByNameDeployment(this.nombre_despliegue[0]?.nombre_helm).subscribe( {
-    //   next: (despliegues: any) => {
-    //     this.despliegues = despliegues || [];
-    //     console.log('Despliegues', this.despliegues);
-    //   },
-    //   error: (error: any) => {
-    //     console.log(error);
-    //   }
-    // });
-    // this.despliegueService.findAll().subscribe({
-    //   next: (despliegues: any) => {
-    //     this.despliegues = despliegues || [];
-    //     console.log('Despliegues', this.despliegues);
-    //   },
-    //   error: (error: any) => {
-    //     console.log(error);
-    //   }
-    // });
+
   }
 
   cargarMicroservicios() {
     this.despliegues.forEach((despliegue) => {
       const cargaForm = new FormGroup({
         despliegue: new FormControl(despliegue, [Validators.required])
-        // endpoints: new FormControl('', [Validators.required]),
-        // vus: new FormControl('', [Validators.required]),
-        // picos: new FormControl('', [Validators.required])
+
       });
       (this.experimentoForm.get('cargas') as FormArray).push(cargaForm);
     });
@@ -117,8 +127,12 @@ export class ExperimentoComponent implements OnInit {
     console.log(this.experimentoForm.value);
     console.log('payload', this.experimentoServiceV2.getPayload());
 
-    const payload = this.experimentoServiceV2.buildPayload(this.experimentoForm.value, this.experimentoServiceV2.getPayload());
-    console.log('payload', payload);
+    const payload = this.experimentoServiceV2.buildPayload(
+      this.experimentoForm.value, 
+      this.experimentoServiceV2.getPayload(),
+      this.chaosExperiments.length > 0 ? this.chaosExperiments : undefined
+    );
+    console.log('payload with chaos', payload);
     this.showLoading();
     this.cargaService.createExperiment(payload).subscribe({
       next: (res: any) => {
@@ -140,21 +154,15 @@ export class ExperimentoComponent implements OnInit {
         this.hideLoading();
       }
     });
-
   }
 
   crearExperimento() {
     this.status = true;
     console.log(this.experimentoForm.value);
-    // setTimeout(() => {
-    //   this.crearCarga();
-    //   console.log('La espera ha terminado');
-    // }, 2000);
+
     const sumatoriaPicos = sumarTiemposPorPosicion(this.duracion_picos);
     console.log('Sumatoria de picos', sumatoriaPicos);
-    // if(this.verificarTiempos(sumatoriaPicos)){
 
-    // }
     const newCarga: Carga = {
       cant_usuarios: this.cant_usuarios,
       duracion_picos: this.duracion_picos,
@@ -193,46 +201,18 @@ export class ExperimentoComponent implements OnInit {
           }).then((result) => {
             if (result.isConfirmed) {
               this.router.navigateByUrl('/metricas');
-              // this.router.navigate([ROUTES_APP.DESPLIEGUES+ROUTES_APP.CREAR_DESPLIEGUE,res.id_proyecto]);
+              
             } else {
               this.router.navigateByUrl('/despliegues');
             }
           });
-          // this.experimentoService.create(data).subscribe({
-          //   next: (res: any) => {
-          //     console.log('Experimento creado', res);
-          //     Swal.fire({
-          //       title: "Experimento creado",
-          //       text: "¿Deseas seleccionar metricas para este experimento?",
-          //       icon: "success",
-          //       showCancelButton: true,
-          //       confirmButtonColor: "#3085d6",
-          //       cancelButtonColor: "#d33",
-          //       confirmButtonText: "Si",
-          //       cancelButtonText: "No, ver experimentos"
-          //     }).then((result) => {
-          //       if (result.isConfirmed) {
-          //         this.router.navigateByUrl('/metricas');
-          //         // this.router.navigate([ROUTES_APP.DESPLIEGUES+ROUTES_APP.CREAR_DESPLIEGUE,res.id_proyecto]);
-          //       } else {
-          //         this.router.navigateByUrl('/despliegues');
-          //       }
-          //     });
 
-          //   }, error: (error: any) => {
-          //     console.error('Error creando el experimento', error);
-          //     Swal.fire('Error', 'Ocurrió un error al crear el experimento', 'error');
-          //   }
-          //   // console.log(despliegue);
-          //   // this.router.navigateByUrl('/despliegues');
-          // });
         }
       }, error: (error: any) => {
         console.error('Error creando carga', error);
         this.hideLoading();
       }
-      // console.log(despliegue);
-      // this.router.navigateByUrl('/despliegues');
+
     });
   }
   incluir(index: any) {
@@ -252,22 +232,14 @@ export class ExperimentoComponent implements OnInit {
     console.log('ENDPOINTS', this.endpoints);
     console.log('UsUARIO', this.cant_usuarios);
     console.log('PICOS', this.duracion_picos);
-    // this.experimentoForm.get('cargaForm')?.get('vus')?.valueChanges.subscribe((value) => {
-    // if(this.experimentoForm.get('cargaForm')?.get('vus')?.value != ''){
-    //   this.experimentoForm.get('cargaForm')?.get('vus')?.disable();
-    // }
-    // })
-    // this.endpointsChanged(index);
+
     this.experimentoForm.get('cargaForm')?.reset();
     console.log('value form', this.experimentoForm.get('cargaForm')?.value);
-    // if(this.experimentoForm.get('cargaForm')?.get('vus')?.value === ''){
-    //   this.experimentoForm.get('cargaForm')?.get('vus')?.enable();
-    // }
+
   }
 
   modificar(index: any) {
-    // this.inputHabilitado=true;
-    // this.cargas.at(index).setValue()
+
   }
   verificarTiempos(tiempos: number[]): boolean {
     const duracionExperimento = convertirStringAMinutos(this.experimentoForm.get('duracion')?.value as string)
@@ -296,6 +268,170 @@ export class ExperimentoComponent implements OnInit {
   }
   addEndpoint(id:number) {
     this.router.navigate([`/microservice/${id}/endpoint`])
+  }
+
+  toggleChaosForm() {
+    this.showChaosForm = !this.showChaosForm;
+  }
+
+  get chaosForm() {
+    return this.experimentoForm.get('chaosForm') as FormGroup;
+  }
+
+  onChaosTypeChange() {
+    const type = this.chaosForm.get('type')?.value;
+    this.selectedChaosType = type as ChaosType;
+
+    this.chaosForm.patchValue({
+      networkDelayLatency: '',
+      networkDelayJitter: '',
+      networkDelayCorrelation: '',
+      networkLossLoss: '',
+      networkLossCorrelation: '',
+      networkBandwidthRate: '',
+      stressWorkers: '',
+      stressLoad: '',
+      stressDuration: ''
+    });
+  }
+
+  onMicroserviceChange() {
+    const microserviceId = this.chaosForm.get('selectedMicroservice')?.value;
+    if (!microserviceId) return;
+
+    const microservice = this.despliegues.find(d => d.id_despliegue.toString() === microserviceId);
+    if (microservice) {
+      
+      this.chaosForm.patchValue({
+        namespace: microservice.namespace || 'default',
+        selector: `app=${microservice.nombre}`
+      });
+    }
+  }
+
+  parseSelector(selectorString: string): Record<string, string> {
+    const selector: Record<string, string> = {};
+    if (!selectorString) return selector;
+    
+    const pairs = selectorString.split(',');
+    pairs.forEach(pair => {
+      const [key, value] = pair.split('=').map(s => s.trim());
+      if (key && value) {
+        selector[key] = value;
+      }
+    });
+    return selector;
+  }
+
+  addChaosExperiment() {
+    if (!this.chaosForm.valid) {
+      Swal.fire('Error', 'Por favor completa todos los campos requeridos', 'error');
+      return;
+    }
+
+    const formValue = this.chaosForm.value;
+
+    const microserviceId = formValue.selectedMicroservice;
+    if (!microserviceId) {
+      Swal.fire('Error', 'Por favor selecciona un microservicio', 'error');
+      return;
+    }
+
+    const microservice = this.despliegues.find(d => d.id_despliegue.toString() === microserviceId);
+    if (!microservice) {
+      Swal.fire('Error', 'Microservicio no encontrado', 'error');
+      return;
+    }
+
+    const selectorString = formValue.selector || `app=${microservice.nombre}`;
+    const selector = this.parseSelector(selectorString);
+    
+    if (Object.keys(selector).length === 0) {
+      Swal.fire('Error', 'El selector debe tener al menos un par clave=valor (ej: app=server)', 'error');
+      return;
+    }
+
+    const namespace = formValue.namespace || microservice.namespace || 'default';
+
+    const chaosExperiment: CreateChaosExperimentDto = {
+      type: formValue.type as ChaosType,
+      namespace: namespace,
+      selector: selector,
+      mode: formValue.mode as ChaosMode || ChaosMode.ONE,
+      value: formValue.value ? parseInt(formValue.value) : undefined,
+      
+      duration: '30s', 
+      name: formValue.name || `${microservice.nombre}-${formValue.type}-${Date.now()}`
+    };
+
+    if (this.isNetworkDelayType(chaosExperiment.type) && formValue.networkDelayLatency) {
+      chaosExperiment.networkDelay = {
+        latency: formValue.networkDelayLatency,
+        ...(formValue.networkDelayJitter && { jitter: formValue.networkDelayJitter }),
+        ...(formValue.networkDelayCorrelation && { correlation: formValue.networkDelayCorrelation })
+      };
+    }
+
+    if (this.isNetworkLossType(chaosExperiment.type) && formValue.networkLossLoss) {
+      chaosExperiment.networkLoss = {
+        loss: formValue.networkLossLoss,
+        ...(formValue.networkLossCorrelation && { correlation: formValue.networkLossCorrelation })
+      };
+    }
+
+    if (this.isNetworkBandwidthType(chaosExperiment.type) && formValue.networkBandwidthRate) {
+      chaosExperiment.networkBandwidth = {
+        rate: formValue.networkBandwidthRate
+      };
+    }
+
+    if (this.isStressType(chaosExperiment.type)) {
+      if (!formValue.stressWorkers || !formValue.stressLoad || !formValue.stressDuration) {
+        Swal.fire('Error', 'Para experimentos de estrés, debes especificar workers, load y duration', 'error');
+        return;
+      }
+      chaosExperiment.stress = {
+        workers: parseInt(formValue.stressWorkers),
+        load: parseInt(formValue.stressLoad),
+        duration: formValue.stressDuration
+      };
+    }
+
+    this.chaosExperiments.push(chaosExperiment);
+    Swal.fire('Éxito', 'Experimento de caos añadido correctamente', 'success');
+    this.chaosForm.reset({
+      selectedMicroservice: '',
+      namespace: 'default',
+      mode: ChaosMode.ONE
+    });
+    this.selectedChaosType = null;
+  }
+
+  removeChaosExperiment(index: number) {
+    this.chaosExperiments.splice(index, 1);
+  }
+
+  isNetworkDelayType(type: ChaosType): boolean {
+    return type === ChaosType.NETWORK_DELAY;
+  }
+
+  isNetworkLossType(type: ChaosType): boolean {
+    return type === ChaosType.NETWORK_LOSS;
+  }
+
+  isNetworkBandwidthType(type: ChaosType): boolean {
+    return type === ChaosType.NETWORK_BANDWIDTH;
+  }
+
+  isStressType(type: ChaosType | null): boolean {
+    if (!type) return false;
+    return type === ChaosType.CPU_STRESS || 
+           type === ChaosType.MEMORY_STRESS || 
+           type === ChaosType.IO_STRESS;
+  }
+
+  formatSelector(selector: Record<string, string>): string {
+    return Object.entries(selector).map(([key, value]) => `${key}=${value}`).join(', ');
   }
 }
 
@@ -353,7 +489,7 @@ function convertirStringAMinutos(tiempo: string): number {
     const unidad = match[2];
     return cantidad * unidades[unidad];
   } else {
-    // Si el formato no es válido, devolvemos 0
+    
     return 0;
   }
   

@@ -1,0 +1,66 @@
+<div class="modal-overlay" (click)="cerrarModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3>Seleccionar Métricas para el Reporte</h3>
+      <button type="button" class="btn-close" (click)="cerrarModal()" aria-label="Cerrar">
+        <span aria-hidden="true">&times;</span>
+      </button>
+    </div>
+    
+    <div class="modal-body">
+      
+      <div class="metric-group">
+        <label class="group-header">
+          <input 
+            type="checkbox" 
+            [checked]="todosSeleccionados"
+            (change)="toggleTodos()"
+            class="group-checkbox">
+          <strong>Seleccionar Todas las Métricas</strong>
+        </label>
+      </div>
+
+      <hr>
+
+      @for (grupo of gruposMetricas; track grupo.tipo) {
+        <div class="metric-group">
+          <label class="group-header">
+            <input 
+              type="checkbox" 
+              [checked]="estaGrupoCompleto(grupo.tipo)"
+              (change)="toggleGrupo(grupo.tipo)"
+              class="group-checkbox">
+            <strong>{{ grupo.nombre }}</strong>
+            <span class="group-description">{{ grupo.descripcion }}</span>
+          </label>
+          
+          <div class="metric-list">
+            @for (metrica of grupo.metricas; track metrica.id) {
+              @if (metrica.disponible) {
+                <label class="metric-item">
+                  <input 
+                    type="checkbox" 
+                    [checked]="metricasSeleccionadas[metrica.id]"
+                    (change)="toggleMetrica(metrica.id)"
+                    class="metric-checkbox">
+                  <span class="metric-name">{{ metrica.nombre }}</span>
+                  @if (metrica.descripcion) {
+                    <span class="metric-description">{{ metrica.descripcion }}</span>
+                  }
+                </label>
+              }
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="cerrarModal()">Cancelar</button>
+      <button type="button" class="btn btn-primary" (click)="aplicar()">
+        Aplicar ({{ obtenerMetricasSeleccionadas().length }} seleccionadas)
+      </button>
+    </div>
+  </div>
+</div>
+

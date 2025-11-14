@@ -6,13 +6,13 @@ metadata:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-    - host: server.local           # nombre que vas a usar en el navegador
+    - host: server.local
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: server       # debe coincidir con tu Service
+                name: server
                 port:
                   number: 3000

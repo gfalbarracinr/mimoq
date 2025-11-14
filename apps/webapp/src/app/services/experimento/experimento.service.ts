@@ -1,5 +1,5 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Injectable, OnInit } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { Observable, Subject, tap } from 'rxjs';
 import { ExperimentoInterface } from '../../core/interfaces/experimento';
 import { Experimento } from '../../core/model/experimento/experimento';
@@ -9,7 +9,7 @@ import { ConfigService } from '../../config.service';
 @Injectable({
   providedIn: 'root'
 })
-export class ExperimentoService implements OnInit {
+export class ExperimentoService {
 
   nuevoExperimento: Experimento = {} as Experimento;
   iframes: string[] = [];
@@ -21,7 +21,14 @@ export class ExperimentoService implements OnInit {
   };
 
   private urlBackend: string = ''
-  constructor(private httpClient: HttpClient, private configService: ConfigService) { }
+  constructor(private httpClient: HttpClient, private configService: ConfigService) { 
+    const config = this.configService.getConfig()
+    if (config.apiHostname === 'mimoq.local') {
+      this.urlBackend = `http://${config.apiHostname}/api/experimento/`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api/experimento/`
+    }
+  }
 
   get refresh() {
     return this._refresh;
@@ -34,8 +41,20 @@ export class ExperimentoService implements OnInit {
     return this.httpClient.get<ExperimentoInterface>(this.urlBackend + `${id}`);
   }
 
-  findFile(id: number) {
-    return this.httpClient.get(this.urlBackend + `archivos/${id}`,{ responseType: 'blob' });
+  getStatus(id: number): Observable<{ status: string; k6Status?: string; chaosStatus?: string }> {
+    return this.httpClient.get<{ status: string; k6Status?: string; chaosStatus?: string }>(this.urlBackend + `${id}/status`);
+  }
+
+  findFile(id: number, metricasSeleccionadas?: string[]) {
+    let url = this.urlBackend + `archivos/${id}`;
+    if (metricasSeleccionadas && metricasSeleccionadas.length > 0) {
+      const params = new URLSearchParams();
+      metricasSeleccionadas.forEach(metrica => {
+        params.append('metricas', metrica);
+      });
+      url += '?' + params.toString();
+    }
+    return this.httpClient.get(url, { responseType: 'blob' });
   }
 
   public create(experimento: any): Observable<ExperimentoInterface> {
@@ -73,14 +92,5 @@ export class ExperimentoService implements OnInit {
 
   getIFrames(): string[]{
     return this.iframes;
-  }
-
-  ngOnInit(): void {
-    const config = this.configService.getConfig()
-    if (config.apiHostname === 'mimoq.local') {
-      this.urlBackend = `http://${config.apiHostname}/api/experimento/`
-    } else {
-      this.urlBackend = `http://${config.apiHostname}:3000/api/experimento/`
-    }
   }
 }

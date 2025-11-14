@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, NotFoundException, Res } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { spawn } from 'child_process';
 import { Repository } from 'typeorm';
@@ -15,6 +15,10 @@ import { MetricaService } from '../../../metrica/services/metrica/metrica.servic
 import { CreateExperimentoDto, UpdateExperimentoDto } from '../../dtos/experimento.dto';
 import { Despliegue } from '../../../proyecto/entities/despliegue.entity';
 import { Metrica } from '../../../metrica/entities/metrica.entity';
+import { K6Service } from '../../../k6/k6.service';
+import { ChaosService } from '../../../chaos/services/chaos.service';
+import { MetricsProcessorService } from '../../../k6/metrics-processor.service';
+import { PrometheusService } from '../../../prometheus/prometheus.service';
 
 @Injectable()
 export class ExperimentoService {
@@ -25,6 +29,10 @@ export class ExperimentoService {
     private metricaService: MetricaService,
     private cargaService: CargaService,
     private tableroService: TableroService,
+    private k6Service: K6Service,
+    private chaosService: ChaosService,
+    private metricsProcessor: MetricsProcessorService,
+    private prometheusService: PrometheusService,
   ) { }
 
   async findAll() {
@@ -60,10 +68,11 @@ export class ExperimentoService {
     }
   }
 
-  async findFiles(id: number, @Res() res: Response) {
+  async findFiles(id: number, @Res() res: Response, metricasSeleccionadas: string[] = []) {
     try {
       const experiment = await this.experimentoRepo.findOne({
         where: { id_experimento: id },
+        relations: ['despliegues'],
       });
 
       if (!(experiment instanceof Experimento)) {
@@ -72,39 +81,427 @@ export class ExperimentoService {
         );
       }
 
-      const archivosPaths = experiment.nombres_archivos.map(nombre_archivo =>
-        path.join(__dirname, '../../../../', `utils/resultados-experimentos/${experiment.nombre}`, nombre_archivo)
-      );
-
-      const archivosExistentes = archivosPaths.filter(archivoPath => fs.existsSync(archivoPath));
-
-      if (archivosExistentes.length === 0) {
-        throw new NotFoundException('No se encontraron archivos');
+      const isPrometheusAvailable = await this.prometheusService.isAvailable();
+      if (!isPrometheusAvailable) {
+        throw new InternalServerErrorException('Prometheus no está disponible. No se pueden obtener las métricas.');
       }
 
+      const now = new Date();
+      const durationMs = this.parseDurationToMs(experiment.duracion);
+      const endTime = now;
+      const startTime = new Date(now.getTime() - durationMs - 300000); 
+
+      const allPodNames: string[] = [];
+      const serviceNames: string[] = [];
+      let namespace = 'default';
+
+      // Handle chaos-only experiments (no deployments but has chaos configuration)
+      if ((!experiment.despliegues || experiment.despliegues.length === 0) && experiment.tipo_chaos) {
+        namespace = experiment.namespace || 'default';
+        
+        // Try to find pods using the chaos selector
+        if (experiment.configuracion_chaos?.selector) {
+          const selector = experiment.configuracion_chaos.selector;
+          
+          // If selector is a string like "app=myapp", parse it
+          if (typeof selector === 'string') {
+            const parts = selector.split('=');
+            if (parts.length === 2) {
+              const labelKey = parts[0].trim();
+              const labelValue = parts[1].trim();
+              
+              // Query Prometheus for pods with this label
+              const query = `kube_pod_info{namespace="${namespace}",${labelKey}="${labelValue}"}`;
+              try {
+                const response = await this.prometheusService.query(query);
+                if (response.status === 'success' && response.data.result) {
+                  for (const result of response.data.result) {
+                    const podName = result.metric.pod;
+                    if (podName) {
+                      allPodNames.push(podName);
+                      // Extract service name from pod name (usually pod name contains service name)
+                      const serviceName = podName.split('-')[0];
+                      if (serviceName && !serviceNames.includes(serviceName)) {
+                        serviceNames.push(serviceName);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                console.warn(`Error querying pods for chaos experiment: ${error.message}`);
+              }
+            }
+          } else if (typeof selector === 'object') {
+            // If selector is an object with labelSelectors
+            const labelSelectors = selector.labelSelectors || selector;
+            for (const [key, value] of Object.entries(labelSelectors)) {
+              const query = `kube_pod_info{namespace="${namespace}",${key}="${value}"}`;
+              try {
+                const response = await this.prometheusService.query(query);
+                if (response.status === 'success' && response.data.result) {
+                  for (const result of response.data.result) {
+                    const podName = result.metric.pod;
+                    if (podName && !allPodNames.includes(podName)) {
+                      allPodNames.push(podName);
+                      const serviceName = podName.split('-')[0];
+                      if (serviceName && !serviceNames.includes(serviceName)) {
+                        serviceNames.push(serviceName);
+                      }
+                    }
+                  }
+                }
+              } catch (error) {
+                console.warn(`Error querying pods for chaos experiment: ${error.message}`);
+              }
+            }
+          }
+        }
+        
+        // If still no pods found, try to get all pods in the namespace
+        if (allPodNames.length === 0) {
+          try {
+            const query = `kube_pod_info{namespace="${namespace}"}`;
+            const response = await this.prometheusService.query(query);
+            if (response.status === 'success' && response.data.result) {
+              for (const result of response.data.result) {
+                const podName = result.metric.pod;
+                if (podName) {
+                  allPodNames.push(podName);
+                  const serviceName = podName.split('-')[0];
+                  if (serviceName && !serviceNames.includes(serviceName)) {
+                    serviceNames.push(serviceName);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.warn(`Error querying all pods in namespace: ${error.message}`);
+          }
+        }
+      } else if (!experiment.despliegues || experiment.despliegues.length === 0) {
+        throw new NotFoundException('El experimento no tiene despliegues asociados. No se pueden obtener métricas de pods.');
+      } else {
+        // Normal flow for experiments with deployments
+        for (const despliegue of experiment.despliegues) {
+          serviceNames.push(despliegue.nombre);
+
+          const podNames = await this.prometheusService.findPodNames(
+            despliegue.nombre,
+            despliegue.namespace || 'default'
+          );
+          
+          if (podNames.length === 0) {
+            
+            const helmPodNames = await this.prometheusService.findPodNames(
+              despliegue.nombre_helm || despliegue.nombre,
+              despliegue.namespace || 'default'
+            );
+            allPodNames.push(...helmPodNames);
+          } else {
+            allPodNames.push(...podNames);
+          }
+        }
+        namespace = experiment.despliegues[0]?.namespace || 'default';
+      }
+
+      // Allow download even if no pods found for chaos experiments
+      if (allPodNames.length === 0 && experiment.tipo_chaos) {
+        // For chaos-only experiments, create a minimal CSV with experiment info
+        const csvContent = this.generateChaosExperimentCSV(experiment);
+        
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename=ResultadosBE-${experiment.nombre || id}.zip`);
+
+        const zip = archiver('zip');
+        zip.pipe(res);
+
+        const csvFileName = `${experiment.nombre || `experimento-${id}`}.csv`;
+        zip.append(csvContent, { name: csvFileName });
+
+        zip.finalize();
+        return;
+      }
+
+      if (allPodNames.length === 0) {
+        throw new NotFoundException(
+          'No se encontraron pods asociados a los despliegues del experimento. ' +
+          'Asegúrate de que los pods estén ejecutándose y que Prometheus los esté monitoreando.'
+        );
+      }
+
+      const [cpuMetrics, memoryMetrics, networkMetrics, httpRequestMetrics, latencyMetrics] = await Promise.all([
+        this.prometheusService.getPodCPUMetrics(allPodNames, namespace, startTime, endTime),
+        this.prometheusService.getPodMemoryMetrics(allPodNames, namespace, startTime, endTime),
+        this.prometheusService.getPodNetworkMetrics(allPodNames, namespace, startTime, endTime),
+        this.prometheusService.getHTTPRequestMetrics(serviceNames, namespace, startTime, endTime),
+        this.prometheusService.getHTTPLatencyMetrics(serviceNames, namespace, startTime, endTime),
+      ]);
+
+      const allMetrics = {
+        ...cpuMetrics,
+        ...memoryMetrics,
+        ...networkMetrics,
+        ...httpRequestMetrics,
+        ...latencyMetrics,
+      };
+
+      const hasData = Object.values(allMetrics).some(series => series.length > 0);
+      if (!hasData) {
+        // For chaos-only experiments, allow download even without metrics
+        if (experiment.tipo_chaos && (!experiment.despliegues || experiment.despliegues.length === 0)) {
+          const csvContent = this.generateChaosExperimentCSV(experiment);
+          
+          res.setHeader('Content-Type', 'application/zip');
+          res.setHeader('Content-Disposition', `attachment; filename=ResultadosBE-${experiment.nombre || id}.zip`);
+
+          const zip = archiver('zip');
+          zip.pipe(res);
+
+          const csvFileName = `${experiment.nombre || `experimento-${id}`}.csv`;
+          zip.append(csvContent, { name: csvFileName });
+
+          zip.finalize();
+          return;
+        }
+        
+        throw new NotFoundException(
+          'No se encontraron métricas en Prometheus para los pods del experimento. ' +
+          'Puede que el experimento aún no haya terminado o que las métricas no se hayan scrapeado aún.'
+        );
+      }
+
+      const csvContent = this.generateCSVFromPrometheusPodMetrics(
+        allMetrics,
+        experiment,
+        allPodNames,
+        serviceNames,
+        metricasSeleccionadas
+      );
+
       res.setHeader('Content-Type', 'application/zip');
-      res.setHeader('Content-Disposition', `attachment; filename=ResultadosBE`);
+      res.setHeader('Content-Disposition', `attachment; filename=ResultadosBE-${experiment.nombre || id}.zip`);
 
       const zip = archiver('zip');
       zip.pipe(res);
 
-      archivosExistentes.forEach(archivoPath => {
-        try {
-          const nombre_archivo = path.basename(archivoPath);
-          zip.append(fs.createReadStream(archivoPath), { name: nombre_archivo });
-        } catch (error) {
-          throw new Error(`Error al agregar archivo al zip: ${error}`);
-        }
-      });
+      const csvFileName = `${experiment.nombre || `experimento-${id}`}.csv`;
+      zip.append(csvContent, { name: csvFileName });
 
       zip.finalize();
 
     } catch (error) {
       console.error(error);
+      if (error instanceof NotFoundException || error instanceof InternalServerErrorException) {
+        throw error;
+      }
       throw new InternalServerErrorException(
-        `Problemas encontrando a un experimento por id: ${error}`,
+        `Problemas obteniendo métricas del experimento: ${error}`,
       );
     }
+  }
+
+  private parseDurationToMs(duration: string): number {
+    const match = duration.match(/^(\d+)([smhd])$/);
+    if (!match) {
+      return 300000; 
+    }
+
+    const value = parseInt(match[1]);
+    const unit = match[2];
+
+    switch (unit) {
+      case 's': return value * 1000;
+      case 'm': return value * 60 * 1000;
+      case 'h': return value * 60 * 60 * 1000;
+      case 'd': return value * 24 * 60 * 60 * 1000;
+      default: return 300000;
+    }
+  }
+
+  private generateCSVFromPrometheusPodMetrics(
+    metrics: Record<string, any[]>,
+    experiment: Experimento,
+    podNames: string[],
+    serviceNames: string[],
+    metricasSeleccionadas: string[] = []
+  ): string {
+    const csvRows: string[] = [];
+
+    const incluirTodas = metricasSeleccionadas.length === 0;
+    const incluirCPU = incluirTodas || metricasSeleccionadas.includes('cpu');
+    const incluirMemoria = incluirTodas || metricasSeleccionadas.includes('memory');
+    const incluirRedRecibir = incluirTodas || metricasSeleccionadas.includes('network_receive');
+    const incluirRedTransmitir = incluirTodas || metricasSeleccionadas.includes('network_transmit');
+    const incluirPeticiones = incluirTodas || metricasSeleccionadas.includes('http_requests');
+    const incluirLatencia = incluirTodas || metricasSeleccionadas.includes('latency');
+
+    const headers: string[] = ['timestamp'];
+
+    for (const podName of podNames) {
+      if (incluirCPU) headers.push(`cpu_${podName}`);
+      if (incluirMemoria) headers.push(`memory_mb_${podName}`);
+      if (incluirRedRecibir) headers.push(`network_receive_bytes_${podName}`);
+      if (incluirRedTransmitir) headers.push(`network_transmit_bytes_${podName}`);
+    }
+
+    for (const serviceName of serviceNames) {
+      if (incluirPeticiones) headers.push(`http_requests_${serviceName}`);
+      if (incluirLatencia) headers.push(`latency_seconds_${serviceName}`);
+    }
+    
+    csvRows.push(headers.join(','));
+
+    const allTimestamps = new Set<number>();
+    Object.values(metrics).forEach(seriesArray => {
+      seriesArray.forEach(series => {
+        if (series.values) {
+          series.values.forEach(([timestamp]) => {
+            allTimestamps.add(timestamp);
+          });
+        } else if (series.value) {
+          allTimestamps.add(series.value[0]);
+        }
+      });
+    });
+
+    const sortedTimestamps = Array.from(allTimestamps).sort((a, b) => a - b);
+
+    const getValueAtTimestamp = (metricName: string, timestamp: number): string => {
+      const seriesArray = metrics[metricName] || [];
+      
+      for (const series of seriesArray) {
+        if (series.values) {
+          
+          for (let i = 0; i < series.values.length; i++) {
+            const [ts, valueStr] = series.values[i];
+            const timeDiff = Math.abs(ts - timestamp);
+            if (timeDiff <= 30) {
+              return valueStr;
+            }
+          }
+          
+          if (series.values.length > 0) {
+            let closest = series.values[0];
+            let minDiff = Math.abs(closest[0] - timestamp);
+            for (const [ts, val] of series.values) {
+              const diff = Math.abs(ts - timestamp);
+              if (diff < minDiff) {
+                minDiff = diff;
+                closest = [ts, val];
+              }
+            }
+            if (minDiff <= 60) { 
+              return closest[1];
+            }
+          }
+        } else if (series.value) {
+          const [ts, valueStr] = series.value;
+          const timeDiff = Math.abs(ts - timestamp);
+          if (timeDiff <= 30) {
+            return valueStr;
+          }
+        }
+      }
+      return '0';
+    };
+
+    sortedTimestamps.forEach(timestamp => {
+      const date = new Date(timestamp * 1000);
+      const row: string[] = [date.toISOString()];
+
+      for (const podName of podNames) {
+        if (incluirCPU) {
+          const cpuValue = getValueAtTimestamp(`cpu_${podName}`, timestamp);
+          row.push(cpuValue);
+        }
+        
+        if (incluirMemoria) {
+          const memoryBytes = parseFloat(getValueAtTimestamp(`memory_${podName}`, timestamp));
+          const memoryMB = isNaN(memoryBytes) ? '0' : (memoryBytes / 1024 / 1024).toFixed(2);
+          row.push(memoryMB);
+        }
+        
+        if (incluirRedRecibir) {
+          const networkReceive = getValueAtTimestamp(`network_receive_${podName}`, timestamp);
+          row.push(networkReceive);
+        }
+        
+        if (incluirRedTransmitir) {
+          const networkTransmit = getValueAtTimestamp(`network_transmit_${podName}`, timestamp);
+          row.push(networkTransmit);
+        }
+      }
+
+      for (const serviceName of serviceNames) {
+        if (incluirPeticiones) {
+          const httpRequests = getValueAtTimestamp(`http_requests_${serviceName}`, timestamp);
+          row.push(httpRequests);
+        }
+        
+        if (incluirLatencia) {
+          let latencyValue = getValueAtTimestamp(`latency_${serviceName}`, timestamp);
+          const latencyNum = parseFloat(latencyValue);
+          if (!isNaN(latencyNum) && latencyNum > 1000) {
+            latencyValue = (latencyNum / 1000).toFixed(4);
+          }
+          row.push(latencyValue);
+        }
+      }
+      
+      csvRows.push(row.join(','));
+    });
+
+    return csvRows.join('\n');
+  }
+
+  private generateChaosExperimentCSV(experiment: Experimento): string {
+    const csvRows: string[] = [];
+    
+    // Header row
+    const headers = [
+      'experiment_id',
+      'nombre',
+      'tipo_chaos',
+      'namespace',
+      'duracion',
+      'selector',
+      'mode',
+      'value',
+      'kubernetes_name',
+      'network_delay',
+      'network_loss',
+      'network_bandwidth',
+      'stress_config'
+    ];
+    csvRows.push(headers.join(','));
+    
+    // Data row
+    const config = experiment.configuracion_chaos || {};
+    const selector = typeof config.selector === 'string' 
+      ? config.selector 
+      : (config.selector ? JSON.stringify(config.selector) : '');
+    
+    const stressConfig = config.stress ? JSON.stringify(config.stress) : '';
+    
+    const row = [
+      experiment.experiment_id || '',
+      experiment.nombre || '',
+      experiment.tipo_chaos || '',
+      experiment.namespace || '',
+      experiment.duracion || '',
+      selector,
+      config.mode || '',
+      config.value || '',
+      config.kubernetesName || '',
+      config.networkDelay || '',
+      config.networkLoss || '',
+      config.networkBandwidth || '',
+      stressConfig
+    ];
+    
+    csvRows.push(row.join(','));
+    
+    return csvRows.join('\n');
   }
 
   async buildDashboard(data: CreateExperimentoDto) {
@@ -136,12 +533,12 @@ export class ExperimentoService {
     }
 
     const metricsHttpToPanels = metrics
-      .filter(metric => metric.grupo === 'HTTP') // Filtramos las métricas que tienen el grupo 'http'
-      .map(metric => metric.nombre_prometheus);  // Mapeamos las métricas filtradas a sus nombres Prometheus
+      .filter(metric => metric.grupo === 'HTTP') 
+      .map(metric => metric.nombre_prometheus);  
 
     const metricsInfraToPanels = metrics
-      .filter(metric => metric.grupo !== 'HTTP') // Filtramos las métricas que no tienen el grupo 'http'
-      .map(metric => metric.nombre_prometheus);  // Mapeamos las métricas filtradas a sus nombres Prometheus
+      .filter(metric => metric.grupo !== 'HTTP') 
+      .map(metric => metric.nombre_prometheus);  
 
     for (let i = 0; i < deployments.length; i++) {
       const panelesSeleccionadosHttp = this.filterPanelsHttp(metricsHttpToPanels);
@@ -156,7 +553,6 @@ export class ExperimentoService {
     iframes.push(iframe);
     return iframes;
   }
-
 
   async createExperiment(data: CreateExperimentoDto) {
     try {
@@ -184,20 +580,18 @@ export class ExperimentoService {
         deployments.push(deployment);
       }
 
-      // Convertir los nombres de los despliegues en una cadena separada por comas
       const searchStrings = deployments.map(deploy => deploy.nombre).join(',');
 
-      // Comando para obtener los nombres de los pods que contienen las cadenas de búsqueda
       const podsNamesCommand = `bash utils/build-results-metrics/search-pod-name.sh -n default -s ${searchStrings}`;
       let allNamesPods = '';
 
       try {
-        // Ejecutar el comando para obtener los nombres de los pods
+        
         const { stdout: podsStdout, stderr: podsStderr } = await this.despliegueUtilsService.executeCommand(podsNamesCommand);
         if (podsStderr) {
           console.error(`Error en el comando para obtener nombres de pods: ${podsStderr}`);
         } else {
-          allNamesPods = podsStdout.trim(); // La salida será una cadena de nombres de pods separados por comas
+          allNamesPods = podsStdout.trim(); 
         }
 
         const buildCommand = `kubectl get pods --no-headers | grep "Running" | wc -l`;
@@ -206,8 +600,8 @@ export class ExperimentoService {
         if (buildStderr) {
           console.error(`Error en el comando para contar pods en estado "Running": ${buildStderr}`);
         } else {
-          // Procesar la salida del comando para contar pods en estado "Running"
-          const numberOfRunningPods = parseInt(buildStdout.trim(), 10); // Convertir la salida a un número entero
+          
+          const numberOfRunningPods = parseInt(buildStdout.trim(), 10); 
           console.log(`Número de pods en estado "Running": ${numberOfRunningPods}`);
         }
       } catch (error) {
@@ -215,10 +609,9 @@ export class ExperimentoService {
       }
 
       const metricsHttpToPanels = metrics
-        .filter(metric => metric.grupo === 'HTTP') // Filtramos las métricas que tienen el grupo 'http'
-        .map(metric => metric.submetricas);  // Mapeamos las métricas filtradas a sus nombres Prometheus
+        .filter(metric => metric.grupo === 'HTTP') 
+        .map(metric => metric.submetricas);  
 
-      // Ejecutar el script de monitoreo en paralelo usando la ruta absoluta y el identificador de iteración
       const dataPodScriptPath = 'utils/build-results-metrics/cpu-memory-pod.sh';
       const dataPodCommand = `bash ${dataPodScriptPath} -p ${allNamesPods} -n default -f ${directoryPath}/cpu-memory-pods.csv -r ${data.duracion}`
       this.executeCommand(dataPodCommand);
@@ -226,7 +619,7 @@ export class ExperimentoService {
       for (let i = 0; i < deployments.length; i++) {
         const nombres_archivos = await this.generateLoad(deployments, load, data, directoryPath, i, newExperiment, metricsHttpToPanels);
         if (!newExperiment.nombres_archivos) {
-          newExperiment.nombres_archivos = []; // Inicializa la propiedad si aún no está definida
+          newExperiment.nombres_archivos = []; 
         }
         newExperiment.nombres_archivos = newExperiment.nombres_archivos.concat(nombres_archivos);
       }
@@ -260,7 +653,7 @@ export class ExperimentoService {
       const reconstructedMetrics = this.transformarSubmetricas(metricsHttp, deploymentName);
       const metricsArgument = reconstructedMetrics.map(metric => `'${metric}'`).join(' ');
       const dataHttpMetricsCommand = `bash ${dataHttpMetricsPath} ${duration} ${directoryPath}/${deploymentName}-${i}-repeticion-${j}.csv ${metricsArgument}`;
-      // Ejecutar el comando
+      
       this.executeCommand(dataHttpMetricsCommand);
       const loadCommand = `K6_PROMETHEUS_RW_SERVER_URL=http://localhost:9090/api/v1/write k6 run -o experimental-prometheus-rw -e API_URL=${url} -e VUS="${load.cant_usuarios[i]}" -e DURATION="${load.duracion_picos[i]}" -e ENDPOINTS="${data.endpoints[j]}" -e DELIMITER="," --tag testid=${deploymentName} ${dirLoad}`;
       if (deployments[i].autoescalado) {
@@ -295,7 +688,6 @@ export class ExperimentoService {
 
     return nombres_archivos;
   }
-
 
   private transformarSubmetricas(submetricasArray: string[], testid: string): string[] {
     return submetricasArray.flatMap(submetricas => {
@@ -400,8 +792,258 @@ export class ExperimentoService {
     }
   }
 
+  async getExperimentStatus(id: number): Promise<{ status: string; k6Status?: string; chaosStatus?: string }> {
+    try {
+      const experiment = await this.experimentoRepo.findOne({
+        where: { id_experimento: id },
+        relations: ['despliegues'],
+      });
+
+      if (!experiment) {
+        throw new NotFoundException(`Experimento con id ${id} no encontrado`);
+      }
+
+      let k6Status: string | undefined;
+      let chaosStatus: string | undefined;
+      const statuses: string[] = [];
+
+      if (!experiment.tipo_chaos && experiment.experiment_id) {
+        try {
+
+          const namespace = experiment.despliegues && experiment.despliegues.length > 0 
+            ? experiment.despliegues[0].namespace 
+            : 'default';
+
+          const testName = experiment.nombre?.toLowerCase().replace(/\s+/g, '-') || `test-${id}`;
+          
+          const k6TestRun = await this.k6Service.getTestRunStatus(testName, namespace);
+          if (k6TestRun) {
+            
+            if (k6TestRun.notFound) {
+              k6Status = 'Failed';
+              statuses.push('Failed');
+            } else {
+              const phase = k6TestRun.status?.phase || k6TestRun.status?.stage || 'Unknown';
+              k6Status = phase;
+              statuses.push(phase);
+            }
+          } else {
+            
+            k6Status = 'Unknown';
+            statuses.push('Unknown');
+          }
+        } catch (error) {
+          
+          console.error(`Unexpected error getting K6 status for experiment ${id}:`, error);
+          k6Status = 'Unknown';
+          statuses.push('Unknown');
+        }
+      }
+
+      if (experiment.tipo_chaos && experiment.namespace && experiment.configuracion_chaos?.kubernetesName) {
+        try {
+          const chaosExp = await this.chaosService.getChaosExperimentStatus(
+            experiment.tipo_chaos as any,
+            experiment.namespace,
+            experiment.configuracion_chaos.kubernetesName
+          );
+          const phase = chaosExp.status?.experiment?.phase || chaosExp.status?.phase || 'Unknown';
+          chaosStatus = phase;
+          statuses.push(phase);
+        } catch (error: any) {
+          
+          if (error.statusCode === 404 || (error.response && error.response.statusCode === 404)) {
+            chaosStatus = 'Completed'; 
+            statuses.push('Completed');
+          } else {
+            console.error(`Error getting Chaos status for experiment ${id}:`, error);
+            chaosStatus = 'Unknown';
+            statuses.push('Unknown');
+          }
+        }
+      }
+
+      let overallStatus = 'Unknown';
+      if (statuses.length === 0) {
+        overallStatus = 'Unknown';
+      } else if (statuses.some(s => s === 'Running' || s === 'Pending')) {
+        overallStatus = 'Running';
+      } else if (statuses.some(s => s === 'Failed' || s === 'Error')) {
+        overallStatus = 'Failed';
+      } else if (statuses.every(s => s === 'Completed' || s === 'Finished')) {
+        overallStatus = 'Completed';
+      } else {
+        overallStatus = statuses[0];
+      }
+
+      return {
+        status: overallStatus,
+        k6Status,
+        chaosStatus,
+      };
+    } catch (error) {
+      console.error(`Error getting experiment status for id ${id}:`, error);
+      throw new InternalServerErrorException(
+        `Error obteniendo el estado del experimento: ${error}`,
+      );
+    }
+  }
+
   removeExperiment(id: number) {
     return this.experimentoRepo.delete(id);
+  }
+
+  async checkExperimentFiles(id: number) {
+    try {
+      const experiment = await this.experimentoRepo.findOne({
+        where: { id_experimento: id },
+      });
+
+      if (!experiment) {
+        throw new NotFoundException(`Experimento con id #${id} no se encuentra en la Base de Datos`);
+      }
+
+      const formattedExperimentName = experiment.nombre?.toLowerCase().replace(/\s+/g, '-') || experiment.nombre;
+      const experimentDir = path.join(__dirname, '../../../../', `utils/resultados-experimentos/${formattedExperimentName}`);
+
+      const result: any = {
+        experimentId: id,
+        experimentName: experiment.nombre,
+        experimentIdField: experiment.experiment_id,
+        nombresArchivosInBD: experiment.nombres_archivos || [],
+        directoryExists: fs.existsSync(experimentDir),
+        directoryPath: experimentDir,
+        filesInDirectory: [],
+        filesStatus: [],
+      };
+
+      if (fs.existsSync(experimentDir)) {
+        const files = fs.readdirSync(experimentDir);
+        result.filesInDirectory = files;
+
+        if (experiment.nombres_archivos && Array.isArray(experiment.nombres_archivos)) {
+          for (const fileName of experiment.nombres_archivos) {
+            const filePath = path.join(experimentDir, fileName);
+            result.filesStatus.push({
+              fileName,
+              exists: fs.existsSync(filePath),
+              path: filePath,
+              size: fs.existsSync(filePath) ? fs.statSync(filePath).size : 0,
+            });
+          }
+        }
+      }
+
+      return result;
+    } catch (error) {
+      console.error(`Error checking files for experiment ${id}:`, error);
+      throw new InternalServerErrorException(
+        `Error verificando archivos del experimento: ${error}`,
+      );
+    }
+  }
+
+  async regenerateExperimentFiles(id: number) {
+    try {
+      const experiment = await this.experimentoRepo.findOne({
+        where: { id_experimento: id },
+      });
+
+      if (!experiment) {
+        throw new NotFoundException(`Experimento con id #${id} no se encuentra en la Base de Datos`);
+      }
+
+      if (!experiment.experiment_id) {
+        throw new BadRequestException(`El experimento no tiene experiment_id asociado`);
+      }
+
+      const basePath = '/test-result';
+      const experimentId = experiment.experiment_id;
+
+      let foundFiles: string[] = [];
+      if (fs.existsSync(basePath)) {
+        const searchForJsonFiles = (dir: string, depth: number = 0): string[] => {
+          if (depth > 5) return []; 
+          const files: string[] = [];
+          try {
+            const entries = fs.readdirSync(dir, { withFileTypes: true });
+            for (const entry of entries) {
+              const fullPath = path.join(dir, entry.name);
+              if (entry.isDirectory()) {
+                files.push(...searchForJsonFiles(fullPath, depth + 1));
+              } else if (entry.isFile() && entry.name.endsWith('.json') && fullPath.includes(experimentId)) {
+                files.push(fullPath);
+              }
+            }
+          } catch (error) {
+            
+          }
+          return files;
+        };
+        foundFiles = searchForJsonFiles(basePath);
+      }
+
+      if (foundFiles.length === 0) {
+        return {
+          success: false,
+          message: 'No se encontraron archivos JSON para este experimento en el PVC compartido',
+          experimentId: experiment.experiment_id,
+          searchedPath: basePath,
+        };
+      }
+
+      const results = [];
+      for (const jsonFile of foundFiles) {
+        try {
+          
+          const pathParts = jsonFile.split('/');
+          const userLabel = pathParts[pathParts.length - 2];
+          const fileName = pathParts[pathParts.length - 1];
+          const testName = fileName.replace(/^(metrics-|summary-|output-)/, '').replace(/\.json$/, '');
+
+          const metricsData = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+
+          const additionalLabels: Record<string, string> = {};
+          if (experiment.despliegues && experiment.despliegues.length > 0) {
+            additionalLabels.service = experiment.despliegues[0].nombre || 'unknown';
+          }
+          if (experiment.endpoints && experiment.endpoints.length > 0) {
+            const endpoint = experiment.endpoints[0];
+            additionalLabels.endpoint = endpoint.replace(/\W+/g, '-');
+          }
+
+          await this.metricsProcessor.processK6Metrics(
+            userLabel,
+            experimentId,
+            testName,
+            additionalLabels
+          );
+
+          results.push({
+            file: jsonFile,
+            processed: true,
+            testName,
+          });
+        } catch (error) {
+          results.push({
+            file: jsonFile,
+            processed: false,
+            error: error.message,
+          });
+        }
+      }
+
+      return {
+        success: true,
+        message: `Procesados ${results.filter(r => r.processed).length} de ${results.length} archivos`,
+        results,
+      };
+    } catch (error) {
+      console.error(`Error regenerating files for experiment ${id}:`, error);
+      throw new InternalServerErrorException(
+        `Error regenerando archivos del experimento: ${error}`,
+      );
+    }
   }
 
   private async executeCommand(command: string): Promise<{ stdout: string, stderr: string }> {

@@ -1,4 +1,4 @@
-# --- Persistent Volume (hostPath for demo/dev only) ---
+
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -23,7 +23,7 @@ spec:
     requests:
       storage: 10Gi
 ---
-# --- Deployment ---
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -73,7 +73,7 @@ spec:
           persistentVolumeClaim:
             claimName: postgres-pvc
 ---
-# --- Service ---
+
 apiVersion: v1
 kind: Service
 metadata:

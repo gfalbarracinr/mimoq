@@ -15,7 +15,7 @@ spec:
       containers:
       - name: webapp
         image: gfalbarracinr/webapp:latest
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Never
         resources:
           limits:
             memory: "128Mi"

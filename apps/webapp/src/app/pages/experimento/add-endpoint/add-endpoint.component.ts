@@ -29,9 +29,8 @@ export class AddEndpointComponent {
     thresholds: new FormControl(''),
     parametros: new FormControl(''),
 
-    // Ramp-up & Cool-down controls
     enableRampUp: new FormControl(false),
-    rampUpStages: new FormArray([]), // array de { duration, target }
+    rampUpStages: new FormArray([]), 
 
     enableCoolDown: new FormControl(false),
     coolDownDuration: new FormControl('', []),
@@ -49,7 +48,6 @@ export class AddEndpointComponent {
      private experimentoService: ExperimentoV2Service, 
      private router: Router) {}
 
-  
   ngOnInit() {
     this.id = this.route.snapshot.paramMap.get('id')!;
     this.name = this.despliegueService.getDespliegue().find((despliegue) => despliegue.id_despliegue === parseInt(this.id))?.nombre ?? ""
@@ -71,14 +69,13 @@ export class AddEndpointComponent {
     return `/${url}`
   }
 
-  // Helpers para rampUpStages
   get rampUpStages(): FormArray {
     return this.experimentoForm.get('rampUpStages') as FormArray;
   }
 
   crearRampStage(duration = '', target = 10): FormGroup {
     return new FormGroup({
-      duration: new FormControl(duration, Validators.required), // ej: "2m"
+      duration: new FormControl(duration, Validators.required), 
       target: new FormControl(target, [Validators.required, Validators.min(1)])
     });
   }
@@ -91,13 +88,12 @@ export class AddEndpointComponent {
     this.rampUpStages.removeAt(index);
   }
 
-  // Si el usuario activa ramp-up por primera vez, agregamos un stage por defecto
   toggleRampUp() {
     const enabled = this.experimentoForm.get('enableRampUp')?.value;
     if (enabled && this.rampUpStages.length === 0) {
       this.agregarRampStage();
     } else if (!enabled) {
-      // opcional: limpiar stages si lo desactiva
+      
       while (this.rampUpStages.length) {
         this.rampUpStages.removeAt(0);
       }
@@ -105,7 +101,7 @@ export class AddEndpointComponent {
   }
 
   onSubmit() {
-    // marcar touched para validaciones
+    
     this.experimentoForm.markAllAsTouched();
 
     if (this.experimentoForm.invalid) {
@@ -122,7 +118,6 @@ export class AddEndpointComponent {
       this.experimentoService.addEndpointToPayload(this.id, payload)
       this.router.navigateByUrl('/experimento/crear');
     }
-    
 
   }
 
@@ -134,7 +129,7 @@ export class AddEndpointComponent {
       enableRampUp: false,
       enableCoolDown: false
     });
-    // limpiar rampUpStages
+    
     while (this.rampUpStages.length) this.rampUpStages.removeAt(0);
   }
   onDelete() {

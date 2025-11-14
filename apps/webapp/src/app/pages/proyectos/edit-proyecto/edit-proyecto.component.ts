@@ -19,7 +19,7 @@ export class EditProyectoComponent implements OnInit {
     {label: 'No', value: 'No'}
   ]
   proyectoActual : ProyectoInterface = {} as ProyectoInterface;
-  // despliegues: DespliegueInterface[] = {} as DespliegueInterface[];
+  
   proyectoForm = new FormGroup({
     name: new FormControl('', [Validators.required]),
     description: new FormControl('', [Validators.required]),
@@ -27,7 +27,7 @@ export class EditProyectoComponent implements OnInit {
     selectedAllMicroservices: new FormControl(true, [Validators.required]),
     urlsRepositorios: new FormArray([]),
     haveDockerfiles: new FormControl(true, [Validators.required]),
-    // nameAplication: new FormControl('', [Validators.required, Validators.pattern(this.noTildesPattern)])
+    
   });
 
   constructor(private router:Router,
@@ -41,7 +41,7 @@ export class EditProyectoComponent implements OnInit {
     this.proyectoService.findById(id).subscribe({
       next: (proyecto: any) => {
         this.proyectoActual = proyecto;
-        // this.despliegues = this.proyectoActual?.despliegues || [];
+        
         console.log('Despliegues',this.proyectoActual);
       },
       error: (error: any) => {

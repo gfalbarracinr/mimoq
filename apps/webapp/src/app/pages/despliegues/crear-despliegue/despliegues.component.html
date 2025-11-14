@@ -52,8 +52,7 @@
                   @for (microservicio of replicasMicro.controls; track $index) {
                       <tr>
                       <td>{{microservicio.get('nombre')?.value || ''}}</td>
-                      <!-- <td><input type="number" [value]="replicas" placeholder="Cantidad de réplicas"
-                        id="inputReplicasMicro" class="form-control" min="1" required /></td> -->
+                      
                       <td class="text-center"> {{microservicio.get('cantidad')?.value || ''}}</td>
                       <td><button type="button" class="btn btn-outline-primary" (click)="increment($index)">+</button>
                       <button type="button" class="btn btn-outline-primary" (click)="decrement($index)">-</button></td>
@@ -76,18 +75,12 @@
               Atrás
             </button>
             <button type="submit" class="btn btn-primary" [disabled]="!despliegueForm.valid" (click)="crearDespliegue()">
-              <!-- <a class="btn btn-primary btn-xl"></a> -->
+              
               Siguiente
             </button>
           </div>
           }
-          <!-- <div class="text-center form-conent"> -->
-            <!-- <button type="submit" class="btn btn-primary btn-xl" (click)="crearDespliegue()"> -->
-              <!-- <button type="submit" class="btn btn-primary btn-xl" [disabled]="!despliegueForm.valid" (click)="crearDespliegue()"> -->
-              <!-- <a class="btn btn-primary btn-xl">
-                Siguiente
-              </a></button>
-          </div> -->
+
         </div>
       </div>
     </form>

@@ -1,1 +1,162 @@
-<p>ver-experimento works!</p>
+<section class="page-section" id="contact">
+  <div class="text-center">
+    <h2 class="section-heading">Detalles del Experimento</h2>
+  </div>
+
+  @if (loading) {
+    <div class="text-center">
+      <p>Cargando información del experimento...</p>
+    </div>
+  } @else if (experimento) {
+    <div class="align-items-stretch justify-content-center mb-5">
+      <div class="about-heading-content">
+        <div class="col-xl-9 col-lg-10 mx-auto">
+          <div class="bg-faded rounded p-5">
+            <div class="contenedor">
+              <ul class="ul-list-view">
+                
+                <li>
+                  <strong class="d-inline-block mb-2 text-primary-emphasis letra">ID Experimento:</strong>
+                  {{ experimento.id_experimento }}
+                </li>
+
+                <li>
+                  <strong class="d-inline-block mb-2 text-primary-emphasis letra">Nombre:</strong>
+                  {{ experimento.nombre }}
+                </li>
+
+                <li>
+                  <strong class="d-inline-block mb-2 text-primary-emphasis letra">Duración:</strong>
+                  {{ experimento.duracion }}
+                </li>
+
+                <li>
+                  <strong class="d-inline-block mb-2 text-primary-emphasis letra">Cantidad de Réplicas:</strong>
+                  {{ experimento.cant_replicas }}
+                </li>
+
+                @if (experimento.experiment_id) {
+                  <li>
+                    <strong class="d-inline-block mb-2 text-primary-emphasis letra">ID de Experimento:</strong>
+                    {{ experimento.experiment_id }}
+                  </li>
+                }
+
+                @if (!experimento.tipo_chaos) {
+                  <li>
+                    <strong class="d-inline-block mb-2 text-primary-emphasis letra">Tipo:</strong>
+                    <span class="badge bg-primary">K6</span>
+                  </li>
+
+                  @if (experimentStatus?.k6Status) {
+                    <li>
+                      <strong class="d-inline-block mb-2 text-primary-emphasis letra">Estado K6:</strong>
+                      <span [style.color]="getStatusColor(experimentStatus?.k6Status)">
+                        {{ getStatusText(experimentStatus?.k6Status) }}
+                      </span>
+                    </li>
+                  }
+
+                  @if (experimento.despliegues && experimento.despliegues.length > 0) {
+                    <li>
+                      <strong class="d-inline-block mb-2 text-primary-emphasis letra">Microservicios:</strong>
+                      <ul>
+                        @for (despliegue of experimento.despliegues; track $index) {
+                          <li>
+                            <strong>Nombre:</strong> {{ despliegue.nombre }}<br>
+                            <strong>Namespace:</strong> {{ despliegue.namespace || 'N/A' }}<br>
+                            <strong>Réplicas:</strong> {{ despliegue.cant_replicas || 'N/A' }}
+                          </li>
+                        }
+                      </ul>
+                    </li>
+                  }
+
+                  @if (experimento.endpoints && experimento.endpoints.length > 0) {
+                    <li>
+                      <strong class="d-inline-block mb-2 text-primary-emphasis letra">Endpoints:</strong>
+                      <ul>
+                        @for (endpoint of experimento.endpoints; track $index) {
+                          <li>{{ endpoint }}</li>
+                        }
+                      </ul>
+                    </li>
+                  }
+                }
+
+                @if (experimento.tipo_chaos) {
+                  <li>
+                    <strong class="d-inline-block mb-2 text-primary-emphasis letra">Tipo:</strong>
+                    <span class="badge bg-warning text-dark">Chaos</span>
+                  </li>
+
+                  <li>
+                    <strong class="d-inline-block mb-2 text-primary-emphasis letra">Tipo de Chaos:</strong>
+                    {{ experimento.tipo_chaos }}
+                  </li>
+
+                  @if (experimentStatus?.chaosStatus) {
+                    <li>
+                      <strong class="d-inline-block mb-2 text-primary-emphasis letra">Estado Chaos:</strong>
+                      <span [style.color]="getStatusColor(experimentStatus?.chaosStatus)">
+                        {{ getStatusText(experimentStatus?.chaosStatus) }}
+                      </span>
+                    </li>
+                  }
+
+                  @if (experimento.namespace) {
+                    <li>
+                      <strong class="d-inline-block mb-2 text-primary-emphasis letra">Namespace:</strong>
+                      {{ experimento.namespace }}
+                    </li>
+                  }
+
+                  @if (experimento.configuracion_chaos) {
+                    <li>
+                      <strong class="d-inline-block mb-2 text-primary-emphasis letra">Configuración de Chaos:</strong>
+                      <ul>
+                        <li><strong>Modo:</strong> {{ getChaosMode(experimento.configuracion_chaos) }}</li>
+                        @if (experimento.configuracion_chaos['selector']) {
+                          <li><strong>Selector:</strong> {{ experimento.configuracion_chaos['selector'] }}</li>
+                        }
+                        @if (experimento.configuracion_chaos['value']) {
+                          <li><strong>Valor:</strong> {{ experimento.configuracion_chaos['value'] }}</li>
+                        }
+                        @if (experimento.configuracion_chaos['networkDelay']) {
+                          <li><strong>Network Delay:</strong> {{ experimento.configuracion_chaos['networkDelay'] }}</li>
+                        }
+                        @if (experimento.configuracion_chaos['networkLoss']) {
+                          <li><strong>Network Loss:</strong> {{ experimento.configuracion_chaos['networkLoss'] }}</li>
+                        }
+                        @if (experimento.configuracion_chaos['networkBandwidth']) {
+                          <li><strong>Network Bandwidth:</strong> {{ experimento.configuracion_chaos['networkBandwidth'] }}</li>
+                        }
+                        @if (experimento.configuracion_chaos['stress']) {
+                          <li><strong>Stress:</strong> {{ experimento.configuracion_chaos['stress'] }}</li>
+                        }
+                        @if (experimento.configuracion_chaos['kubernetesName']) {
+                          <li><strong>Nombre en Kubernetes:</strong> {{ experimento.configuracion_chaos['kubernetesName'] }}</li>
+                        }
+                      </ul>
+                    </li>
+                  }
+                }
+
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="text-center">
+      <p>No se pudo cargar la información del experimento.</p>
+    </div>
+  }
+
+  <div class="text-center form-conent">
+    <button class="btn btn-primary btn-xl" id="submitButton" type="button" (click)="goBack()">
+      Atrás
+    </button>
+  </div>
+</section>

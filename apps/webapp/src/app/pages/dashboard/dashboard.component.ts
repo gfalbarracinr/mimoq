@@ -22,14 +22,7 @@ export class DashboardComponent implements OnInit {
   iframeString: SafeHtml = '';
   id_experimento: number = 0;
   resultados: boolean = false;
-  // const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-  // const tooltipList = Array.from(tooltipTriggerList).map(tooltipTriggerEl => {
-  //   new bootstrap.Tooltip(tooltipTriggerEl)
-  // })
-  // users:any[]=[];
-  // constructor(private http: HttpClient) {
 
-  // }
   constructor(private experimentoService: ExperimentoService,
     private router: Router,
     private sanitizer: DomSanitizer
@@ -47,25 +40,24 @@ export class DashboardComponent implements OnInit {
       const element = this.iframes[i];
       console.log('element', i)
       for (let j = 0; j < element.length; j++) {
-        // Marca cada iframe individual como seguro y almacénalo en el array correspondiente
+        
         console.log('prueba', this.iframes[i][j])
         console.log('prueba2', element[j])
         let iframe = element[j]
         let panelID = this.getPanelIdFromIframe(element[j]);
-        // Asignar tamaños según el panelId
+        
         let newWidth: string = '450';
         let newHeight: string = '200';
-        // if (panelID == '10') {
-          newWidth = "800"; // Nuevo ancho para panelId 22
+        
+          newWidth = "800"; 
           newHeight = "450";
-        // }
-        // Construir el nuevo iframe con los tamaños modificados
+
         let newIframe = iframe.replace(`width="${450}"`, `width="${newWidth}"`).replace(`height="${200}"`, `height="${newHeight}"`);
         console.log('nuevo iframe', newIframe)
         this.iframesHtml.push(this.sanitizer.bypassSecurityTrustHtml(newIframe));
         let nombre = this.getNameFromIframe(iframe);
         this.nombres.push(nombre);
-        // this.nombres = this.nombres.filter((item, index) => this.nombres.indexOf(item) === index);
+        
         console.log('nombres',this.nombres)
       }
     }
@@ -76,63 +68,51 @@ export class DashboardComponent implements OnInit {
   crearExperimento() {
     const data = this.experimentoService.getExperimento();
     console.log('Experimento', data);
-    // this.showLoading();
+    
     this.experimentoService.create(data).subscribe({
       next: (res: any) => {
         console.log('Experimento creado', res);
         this.id_experimento = res.id_experimento;
         this.resultados = true;
-        // Swal.fire({
-        //   title: "Experimento creado",
-        //   text: "El experimento ha sido creado correctamente",
-        //   icon: "success",
-        //   showCancelButton: true,
-        //   confirmButtonColor: "#3085d6",
-        //   cancelButtonColor: "#d33",
-        //   confirmButtonText: "Ir a dashboard",
-        //   cancelButtonText: "Lista de experimentos"
-        // }).then((result) => {
-        //   if (result.isConfirmed) {
-        //     this.goToDashboard()
-        //   }else{
-        //     this.router.navigateByUrl(ROUTES_APP.EXPERIMENTO);
-        //   }
-        // });
+
       }, error: (error: any) => {
         console.error('Error creando el experimento', error);
-        // this.hideLoading();
-        // Swal.fire('Error', 'Ocurrió un error al crear el experimento', error);
-        // this.hideLoading();
+
       }
-      // console.log(despliegue);
-      // this.router.navigateByUrl('/despliegues');
+
     });
   }
 
   descargarResultados(){
     console.log('ID_EXPERIMENTO',this.id_experimento);
     this.experimentoService.findFile(this.id_experimento)
-    .subscribe((data: Blob) => {
-      const blob = new Blob([data], { type: 'application/zip' }); // Creamos un nuevo Blob con el tipo de archivo correcto
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Resultados completos'; // Nombre del archivo que recibimos del servidor
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+    .subscribe({
+      next: (data: Blob) => {
+        const blob = new Blob([data], { type: 'application/zip' }); 
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Resultados completos'; 
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      },
+      error: (error) => {
+        console.error('Error descargando resultados:', error);
+        alert('Error al descargar los resultados. Por favor, intente nuevamente.');
+      }
     });
   }
 
   getPanelIdFromIframe(iframe: string): string {
     const match = iframe.match(/panelId=(\d+)/);
-    return match ? match[1] : ''; // Si match es null, devolver una cadena vacía
+    return match ? match[1] : ''; 
   }
   getNameFromIframe(iframe: string): string {
-    // Buscar el nombre del servidor en la URL
+    
     let match = iframe.match(/localhost:8080\/d-solo\/([^/]+)\/panelexport/);
-    // El primer grupo capturado de la expresión regular es el nombre del servidor
+    
     return match ? match[1] : '';
 }
   showLoading() {

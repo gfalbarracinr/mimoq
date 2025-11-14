@@ -57,7 +57,6 @@ export class ExperimentoV2Service {
     this.payload[microserviceID] = payload.filter((endpoint: any) => endpoint.url !== endpointUrl)
   }
 
-  
   getPayload() {
     return this.payload
   }
@@ -66,7 +65,7 @@ export class ExperimentoV2Service {
     return this.payload[microserviceID] ?? []
   }
 
-  buildPayload(carga: any, endpoints: any) {
+  buildPayload(carga: any, endpoints: any, chaosExperiments?: any[]) {
     return {
       nombre: carga.nombre,
       replicas: carga.replicas,
@@ -81,7 +80,8 @@ export class ExperimentoV2Service {
           ...despliegue,
           endpoints: matchingEndpoints
         };
-      })
+      }),
+      ...(chaosExperiments && chaosExperiments.length > 0 && { chaosExperiments })
     };
   }
 

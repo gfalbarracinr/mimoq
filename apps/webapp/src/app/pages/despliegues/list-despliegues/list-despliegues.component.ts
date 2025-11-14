@@ -15,7 +15,7 @@ import { DespliegueG } from '../../../core/interfaces/despliegue-g';
 })
 export class ListDesplieguesComponent implements OnInit {
   p: number = 1;
-  // despliegues: DespliegueInterface[] = [];
+  
   desplieguesAgrupados: DespliegueG[] = [];
   constructor(private router: Router,
     private despliegueService: DespliegueService) {}
@@ -30,7 +30,7 @@ export class ListDesplieguesComponent implements OnInit {
             despliegueTemp.nombre_helm = despliegue.nombre_helm;
             despliegueTemp.namespace = despliegue.namespace;
             despliegueTemp.cant_pods = despliegue.cant_pods;
-              this.desplieguesAgrupados.push(despliegueTemp); //
+              this.desplieguesAgrupados.push(despliegueTemp); 
           } else {
               this.desplieguesAgrupados[index]?.despliegues?.push(despliegue) ?? [];
           }
@@ -54,7 +54,7 @@ export class ListDesplieguesComponent implements OnInit {
       denyButtonColor: "#7E7E7D",
       denyButtonText: `No, desplegar`
     }).then((result) => {
-      /* Read more about isConfirmed, isDenied below */
+      
       if (result.isConfirmed) {
         this.router.navigateByUrl('/despliegues/'+ROUTES_APP.CREAR_DESPLIEGUE)
       } else if (result.isDenied) {

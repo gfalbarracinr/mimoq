@@ -11,9 +11,9 @@ prometheus:
   prometheusSpec:
     serviceMonitorSelectorNilUsesHelmValues: false
     podMonitorSelectorNilUsesHelmValues: false
-    # Permitir scrapear desde namespace default
+
     serviceMonitorNamespaceSelector:
       matchNames:
       - default
-    # Permitir scrapear desde cualquier namespace
+
     serviceMonitorSelector: {}

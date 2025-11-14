@@ -23,7 +23,7 @@ export class VerProyectoComponent implements OnInit {
     private route: ActivatedRoute) {}
   ngOnInit(): void {
     this.getProyecto(this.route.snapshot.paramMap.get('id'));
-    // this.getProyecto(this.id_proyecto);
+    
   } 
 
   getProyecto(id: any): void{
@@ -37,9 +37,7 @@ export class VerProyectoComponent implements OnInit {
         console.log(error);
       }
     });
-    // this.proyectoActual = this.proyectoService.getProyecto();
-    // console.log('Proyecto',this.proyectoActual);  
-    // this.despliegues = this.proyectoActual?.despliegues || [];
+
   }
   update(proyecto: Proyecto): void{
     this.proyectoService.update(proyecto).subscribe(

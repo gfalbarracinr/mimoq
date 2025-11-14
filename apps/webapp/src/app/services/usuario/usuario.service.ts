@@ -25,7 +25,6 @@ export class UsuarioService {
     })
   };
 
-
   public findAll(): Observable<Usuario[]> {
     return this.httpClient.get<Usuario[]>(this.urlBackend);
   }

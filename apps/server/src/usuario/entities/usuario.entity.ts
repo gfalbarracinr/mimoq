@@ -16,7 +16,7 @@ export class Usuario {
     @Column({ type: 'integer'})
     documento: number;
 
-    @Column({ type: 'varchar', length: 100 }) // La contraseña se cifra
+    @Column({ type: 'varchar', length: 100 }) 
     contrasena: string;
 
     @ManyToOne(() => RolUsuario, (rol_usuario) => rol_usuario.usuarios, {

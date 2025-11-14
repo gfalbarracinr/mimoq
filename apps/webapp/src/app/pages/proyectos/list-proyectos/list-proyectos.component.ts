@@ -68,17 +68,6 @@ get ROUTES_APP(){
   return ROUTES_APP
 }
 
-// getProyecto(id: any): void{
-//   this.proyectoService.findById(id).subscribe({
-//     next: (proyecto: any) => {
-//       this.proyectoActual = proyecto;
-//       this.proyectoService.setProyecto(this.proyectoActual);
-//     },
-//     error: (error: any) => {
-//       console.log(error);
-//     }
-//   });
-// }
 eliminarProyecto(id:number): void{
   Swal.fire({
     title: "¿Quieres eliminar este proyecto?",
@@ -99,9 +88,7 @@ eliminarProyecto(id:number): void{
             icon: "success"
           });
           this.router.navigate([ROUTES_APP.PROYECTOS]);
-          // this.proyectos = this.proyectos.filter((proy) => {
-          //   return proy.id_proyecto!== id;
-          // });
+
         },
         error: (error: any) => {
           console.log(error);
@@ -120,26 +107,14 @@ crearDespliegue(){
   this.router.navigate([ROUTES_APP.DESPLIEGUES+'/'+ROUTES_APP.CREAR_DESPLIEGUE]);
 }
 dismissModal() {
-  // const modal = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal('prueba');
-  // modal.hide();
+
   const myModal = document.getElementById('exampleModal')
 const myInput = document.getElementById('myInput')
 
 myModal?.addEventListener('hidden.bs.modal', event => {
-  // do something...
+  
 })
 
 }
 
-  // public getIndex(proyectos: Proyecto[], proyectos: Proyecto): number {
-  //   let id: number = -1;
-  //   let contador: number = 0;
-  //   for (let proy of proyectos) {
-  //     if (proy.id === proyectos.id) {
-  //       id = contador;
-  //     }
-  //     contador++;
-  //   }
-  //   return id;
-  // }
 }

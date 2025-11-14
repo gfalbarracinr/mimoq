@@ -23,6 +23,8 @@ import { ProyectoService } from '../proyecto/services/proyecto/proyecto.service'
 import { UsuarioService } from '../usuario/services/usuario/usuario.service';
 import { RolUsuarioService } from '../usuario/services/rol-usuario/rol-usuario.service';
 import { K6Module } from 'src/k6/k6.module';
+import { ChaosModule } from 'src/chaos/chaos.module';
+import { PrometheusModule } from 'src/prometheus/prometheus.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -37,6 +39,8 @@ import { K6Module } from 'src/k6/k6.module';
       RolUsuario,
     ]),
     K6Module,
+    ChaosModule,
+    PrometheusModule,
   ],
   providers: [ExperimentoService, CargaService, DespliegueService, MetricaService, AtributoService, SubatributoService, TableroService, ProyectoService, UsuarioService, RolUsuarioService],
   controllers: [ExperimentoController, CargaController, TableroController],

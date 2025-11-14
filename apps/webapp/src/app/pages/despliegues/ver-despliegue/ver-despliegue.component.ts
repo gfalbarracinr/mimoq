@@ -17,17 +17,13 @@ export class VerDespliegueComponent implements OnInit{
 
   p: number = 1;
   despliegues: DespliegueInterface[] = [];
-  // desplieguesOrdenados: DespliegueInterface[] = [];
-  // desplieguesAgrupados: DespliegueG[] = [];
+
   constructor(private router: Router, 
     private despliegueService: DespliegueService,
     private route: ActivatedRoute) {}
 
   ngOnInit(): void {
-      // this.despliegueService.findAll().subscribe(despliegues => {
-      //   this.despliegues = despliegues;
-      //   console.log('Despliegues salen',this.despliegues);
-      // });ngOnInit(): void {
+
     this.getDespliegue(this.route.snapshot.paramMap.get('nombre'));
   }
   getDespliegue(nombre: any): void{

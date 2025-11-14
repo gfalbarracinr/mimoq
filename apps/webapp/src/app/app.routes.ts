@@ -44,7 +44,7 @@ export const routes: Routes = [
         path: 'dashboard',
         title: 'Dashboard',
         component: DashboardComponent,
-        // canActivate: [authGuard]
+        
     },
     {
         path: 'proyecto',
@@ -124,11 +124,7 @@ export const routes: Routes = [
                 title: 'Ver Despliegue',
                 component: VerDespliegueComponent
             },
-            // {
-            //     path: 'editProyecto/:id',
-            //     title: 'EditProyecto',
-            //     component: EditProyectoComponent
-            // }
+
         ]
     },
     {
@@ -147,7 +143,7 @@ export const routes: Routes = [
         path: 'modal',
         title: 'Info modal',
         component: ModalComponent,
-        // canActivate: [authGuard]
+        
     },
     {
         path: '**', redirectTo: '', pathMatch: 'full'

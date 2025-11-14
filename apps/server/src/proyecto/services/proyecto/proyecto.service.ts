@@ -98,7 +98,7 @@ export class ProyectoService {
   async findOneByUrlsProjectAndName(urls_repositorios: string[], nombre: string) {
     try {
       const project = await this.proyectoRepo.findOne({
-        where: { /*urls_repositorios: urls_repositorios,*/ nombre: nombre },
+        where: {  nombre: nombre },
         relations: ['despliegues']
       });
       return project;

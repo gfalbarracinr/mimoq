@@ -18,12 +18,21 @@
    make setup-k6-operator
    ```
 
-3. Install monitoring:
+3. Setup Chaos Mesh:
+   ```bash
+   make setup-chaos-mesh
+   ```
+
+4. Install monitoring:
+   
+   make sure you dont have the monitoring installed already, it causes issues
+   if you have it installed run `make uninstall-monitoring` to remove the monitoring instance in helm
+
    ```bash
    make install-monitoring
    ```
 
-4. Start development:
+5. Start development:
    ```bash
    tilt up
    ```
@@ -53,17 +62,24 @@
    ```bash
    make setup-k6-operator
    ```
-4. **Install monitoring**
+
+4. **Set up Chaos Mesh**
+
+   ```bash
+   make setup-chaos-mesh
+   ```
+
+5. **Install monitoring**
    ```bash
    make install-monitoring values_file=apps/server/k8s/kustomize/base/values-monitoring.yml
    ```
    
-5. **Deploy to production:**
+6. **Deploy to production:**
    ```bash
    make deploy-prod
    ```
 
-6. **Setup browser access:**
+7. **Setup browser access:**
    ```bash
    make setup-browser-access
    ```
@@ -85,9 +101,12 @@ make clean-test
 | Command | Description |
 |---------|-------------|
 | `make build-prod` | Build production Docker images |
-| `make sync-kustomize` | Sync Tilt files to Kustomize |
 | `make deploy-prod` | Deploy to production cluster |
 | `make setup-browser-access` | Configure browser access |
+| `make setup-k6-operator` | Install K6 operator |
+| `make setup-chaos-mesh` | Install Chaos Mesh using Helm |
+| `make check-chaos-mesh` | Check Chaos Mesh status |
+| `make uninstall-chaos-mesh` | Uninstall Chaos Mesh |
 | `make test-prod-local` | Test production locally with Kind |
 | `make clean-prod` | Clean production environment |
 | `make clean-test` | Clean test cluster |
@@ -98,6 +117,7 @@ make clean-test
 - **Server**: NestJS API with PostgreSQL
 - **Monitoring**: Prometheus + Grafana
 - **Load Testing**: K6 with custom metrics
+- **Chaos Engineering**: Chaos Mesh for fault injection
 - **Ingress**: NGINX Ingress Controller
 
 ### Access Points
@@ -180,4 +200,18 @@ cd ../..
 ```
 
 
+MiMoQ
 
+MiMoQ es un proyecto de código abierto que pretende ampliarse con ayuda de la comunidad.
+
+## Autores
+
+- Mauren Rivera Bautista
+- Katherine Castro Floréz
+- Kevin Floréz
+- Anderson Alvarado
+- Giovanny Albarracin
+
+## Licencia
+
+[MIT licensed](LICENSE).

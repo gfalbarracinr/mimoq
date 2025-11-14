@@ -5,7 +5,7 @@
       </div>
   
       <form [formGroup]="experimentoForm" (ngSubmit)="onSubmit()" class="row g-3 needs-validation" novalidate>
-        <!-- campos básicos -->
+        
         <div class="row">
             <div class="col-md-6">
             <label for="url" class="form-label">URL del endpoint</label>
@@ -27,8 +27,7 @@
           <label for="vus" class="form-label">Usuarios Virtuales (VUs)</label>
           <input id="vus" type="number" formControlName="vus" class="form-control" min="1" />
         </div>
-  
-        <!-- thresholds y parametros -->
+
         <div class="col-12">
           <label for="thresholds" class="form-label">Thresholds (JSON)</label>
           <textarea id="thresholds" formControlName="thresholds" class="form-control" rows="3"
@@ -40,8 +39,7 @@
           <textarea id="parametros" formControlName="parametros" class="form-control" rows="2"
             placeholder="key1=value1&key2=value2"></textarea>
         </div>
-  
-        <!-- RAMP UP -->
+
         <div class="col-12 mt-3">
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="enableRampUp" formControlName="enableRampUp"
@@ -72,8 +70,7 @@
             </div>
           </div>
         </div>
-  
-        <!-- COOL DOWN -->
+
         <div class="col-12 mt-3">
           <div class="form-check form-switch">
             <input class="form-check-input" type="checkbox" id="enableCoolDown" formControlName="enableCoolDown" />
@@ -94,8 +91,7 @@
             </div>
           </div>
         </div>
-  
-        <!-- acciones -->
+
         <div class="col-12 d-flex justify-content-between mt-3">
           <button class="btn btn-primary" type="submit">Guardar configuración</button>
           <button class="btn btn-secondary" type="button" (click)="onReset()">Limpiar</button>

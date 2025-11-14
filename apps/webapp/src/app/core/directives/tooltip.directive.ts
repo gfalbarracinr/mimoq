@@ -17,9 +17,7 @@ export class TooltipDirective {
     this.render.setStyle(tooltip, 'postion', 'absolute');
     return tooltip;
   }
-  // @HostListener('mouseenter') onMouseEnter() {
-  //   this.highlight('yellow');
-  // }
+
   @HostListener('mouseover')
   onMouseOver() {
     const myTooltip = this.createTooltip();
@@ -35,10 +33,5 @@ export class TooltipDirective {
     },200)
     console.log('mouseout');
   }
-  // @HostListener('mouseleave') onMouseLeave() {
-  //   this.highlight('');
-  // }
-  // private highlight(color: string) {
-  //   this.el.nativeElement.style.backgroundColor = color;
-  // }
+
 }

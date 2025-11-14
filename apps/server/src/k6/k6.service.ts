@@ -85,7 +85,7 @@ export class K6Service {
 
     private formatThresholds(thresholds: object): string {
         try {
-            // Convierte el objeto JS en una representación literal JS (sin comillas)
+            
             const entries = Object.entries(thresholds).map(
                 ([key, value]) => `    ${key}: ${JSON.stringify(value)}`
             );
@@ -111,15 +111,39 @@ export class K6Service {
     }
 
     async createPVC(name: string, namespace: string) {
-        await this.kubernetesService.createPVC(`${name}-pvc`, namespace);
+        
+        const cleanName = name.replace(/-+$/, '');
+        await this.kubernetesService.createPVC(`${cleanName}-pvc`, namespace);
+    }
+
+    async getTestRunStatus(name: string, namespace: string): Promise<any> {
+        try {
+            const result = await this.customApi.getNamespacedCustomObject({
+                group: 'k6.io',
+                version: 'v1alpha1',
+                namespace,
+                plural: 'testruns',
+                name: name.toLowerCase(),
+            });
+            return result.body;
+        } catch (error: any) {
+
+            if (error.statusCode === 404 || (error.body && error.body.code === 404)) {
+                this.logger.log(`K6 TestRun ${name} not found in namespace ${namespace} - marking as failed`);
+                return { notFound: true };
+            }
+            
+            this.logger.warn(`Error getting K6 TestRun status ${name}:`, error.statusCode || error.code || 'Unknown error');
+            return null;
+        }
     }
 
     private parseDurationToMs(duration: string): number {
-        // Parsear duración como "30s", "2m", "1h", etc.
+        
         const match = duration.match(/^(\d+)([smhd])$/);
         if (!match) {
             this.logger.warn(`Duración inválida: ${duration}, usando 30s por defecto`);
-            return 30000; // 30 segundos por defecto
+            return 30000; 
         }
         
         const value = parseInt(match[1]);
@@ -134,227 +158,287 @@ export class K6Service {
         }
     }
 
-    async copyResultsToPVC(testName: string, namespace: string, userLabel: string, experimentId: string) {
+    async waitForJobCompletion(jobName: string, namespace: string, timeoutMs: number = 600000): Promise<void> {
+        const startTime = Date.now();
+        const checkInterval = 5000; 
+        
+        while (Date.now() - startTime < timeoutMs) {
+            try {
+                const job = await this.batchV1Api.readNamespacedJob({ name: jobName, namespace });
+                const conditions = job.status?.conditions || [];
+                const succeeded = conditions.find((c: any) => c.type === 'Complete' && c.status === 'True');
+                const failed = conditions.find((c: any) => c.type === 'Failed' && c.status === 'True');
+                
+                if (succeeded) {
+                    this.logger.log(`Job ${jobName} completed successfully`);
+                    return;
+                }
+                
+                if (failed) {
+                    this.logger.warn(`Job ${jobName} failed: ${failed.message || 'Unknown error'}`);
+                    throw new Error(`Job ${jobName} failed: ${failed.message || 'Unknown error'}`);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, checkInterval));
+            } catch (error: any) {
+                if (error.statusCode === 404 || error.response?.statusCode === 404) {
+                    
+                    await new Promise(resolve => setTimeout(resolve, checkInterval));
+                    continue;
+                }
+                throw error;
+            }
+        }
+        
+        throw new Error(`Job ${jobName} did not complete within ${timeoutMs}ms`);
+    }
+
+    async createExperiment(payload: any, userLabel: string | undefined, experimentId: string): Promise<any> {
+        const createdTests = [];
+        const finalExperimentId = experimentId || `exp-${Date.now()}`;
+        const user = userLabel || 'default';
+
         try {
-            // Crear un Job para copiar archivos
-            const copyJob = {
-                apiVersion: 'batch/v1',
-                kind: 'Job',
-                metadata: {
-                    name: `${testName}-copy-job`,
-                    namespace,
-                    labels: {
-                        app: 'k6-copy',
-                        test: testName
-                    }
-                },
-                spec: {
-                    ttlSecondsAfterFinished: 300, // Limpiar Job después de 5 minutos
-                    template: {
-                        metadata: {
-                            labels: {
-                                app: 'k6-copy',
-                                test: testName
+            if (!payload.servicios || !Array.isArray(payload.servicios)) {
+                throw new Error('Payload must contain a servicios array');
+            }
+
+            for (const servicio of payload.servicios) {
+                const serviceName = servicio.nombre || servicio.name;
+                const namespace = servicio.namespace || 'default';
+                const port = servicio.puerto || servicio.port || 80;
+
+                if (!servicio.endpoints || !Array.isArray(servicio.endpoints)) {
+                    this.logger.warn(`No endpoints found for service ${serviceName}, skipping`);
+                    continue;
+                }
+
+                for (const endpoint of servicio.endpoints) {
+                    const testName = `${finalExperimentId}-${serviceName}-${this.generateUrlLabel(endpoint.url || endpoint.endpoint || '/')}`.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+                    const sanitizedTestName = testName.replace(/-+$/, '');
+
+                    try {
+                        // Create PVC for storing results
+                        await this.createPVC(sanitizedTestName, namespace);
+
+                        // Generate script
+                        const stages = this.getStages(endpoint, payload);
+                        const thresholds = endpoint.thresholds ? this.sanitizeThresholds(endpoint.thresholds) : {};
+                        
+                        const script = this.generateScript({
+                            duration: endpoint.duracion || payload.duracion || '30s',
+                            vus: endpoint.vus || payload.vus || 1,
+                            method: endpoint.method || 'GET',
+                            serviceName: serviceName,
+                            port: port,
+                            url: endpoint.url || endpoint.endpoint || '/',
+                            stages: stages,
+                            thresholds: thresholds,
+                            testName: testName,
+                            user: user,
+                            experiment: finalExperimentId,
+                        });
+
+                        // Create ConfigMap with script
+                        const configMapName = `${sanitizedTestName}-script`;
+                        const configMap = {
+                            apiVersion: 'v1',
+                            kind: 'ConfigMap',
+                            metadata: {
+                                name: configMapName,
+                                namespace: namespace,
+                            },
+                            data: {
+                                'script.js': script,
+                            },
+                        };
+
+                        try {
+                            await this.coreV1Api.createNamespacedConfigMap({ namespace, body: configMap });
+                            this.logger.log(`ConfigMap ${configMapName} created`);
+                        } catch (error: any) {
+                            if (error.statusCode === 409) {
+                                // ConfigMap already exists, update it
+                                await this.coreV1Api.replaceNamespacedConfigMap({
+                                    name: configMapName,
+                                    namespace,
+                                    body: configMap,
+                                });
+                                this.logger.log(`ConfigMap ${configMapName} updated`);
+                            } else {
+                                throw error;
                             }
-                        },
-                        spec: {
-                            containers: [
-                                {
-                                    name: 'copy',
-                                    image: 'bitnami/kubectl:latest',
-                                    command: ['sh', '-c'],
-                                    args: [`
-                                        mkdir -p /test-result/${userLabel}/${experimentId} &&
-                                        kubectl cp ${testName}-runner-0:/tmp/output-${testName}.json /test-result/${userLabel}/${experimentId}/output-${testName}.json &&
-                                        kubectl cp ${testName}-runner-0:/tmp/metrics-${testName}.json /test-result/${userLabel}/${experimentId}/metrics-${testName}.json &&
-                                        echo "✅ Files copied to shared PVC"
-                                        `
-                                    ],
-                                    volumeMounts: [
-                                        {
-                                            name: 'test-result',
-                                            mountPath: '/test-result'
-                                        }
-                                    ]
-                                }
-                            ],
-                            volumes: [
-                                {
-                                    name: 'test-result',
-                                    persistentVolumeClaim: {
-                                        claimName: `${testName}-pvc`
-                                    }
-                                }
-                            ],
-                            restartPolicy: 'Never'
                         }
+
+                        // Create K6 TestRun
+                        const testRun = {
+                            apiVersion: 'k6.io/v1alpha1',
+                            kind: 'TestRun',
+                            metadata: {
+                                name: sanitizedTestName,
+                                namespace: namespace,
+                                labels: {
+                                    experiment: finalExperimentId,
+                                    service: serviceName,
+                                    user: user,
+                                },
+                            },
+                            spec: {
+                                parallelism: 1,
+                                script: {
+                                    configMap: {
+                                        name: configMapName,
+                                        file: 'script.js',
+                                    },
+                                },
+                                arguments: '--out json=/tmp/results.json',
+                            },
+                        };
+
+                        await this.customApi.createNamespacedCustomObject({
+                            group: 'k6.io',
+                            version: 'v1alpha1',
+                            namespace: namespace,
+                            plural: 'testruns',
+                            body: testRun,
+                        });
+
+                        this.logger.log(`K6 TestRun ${sanitizedTestName} created in namespace ${namespace}`);
+
+                        createdTests.push({
+                            name: testName,
+                            servicio: serviceName,
+                            namespace: namespace,
+                            endpoint: endpoint.url || endpoint.endpoint || '/',
+                            replicas: payload.replicas || 1,
+                            testRunName: sanitizedTestName,
+                        });
+                    } catch (error: any) {
+                        this.logger.error(`Error creating K6 test for service ${serviceName}, endpoint ${endpoint.url || endpoint.endpoint}:`, error);
+                        // Continue with other tests even if one fails
                     }
                 }
+            }
+
+            return {
+                experimentId: finalExperimentId,
+                tests: createdTests,
             };
-
-            await this.batchV1Api.createNamespacedJob({
-                namespace,
-                body: copyJob
-            });
-
-            this.logger.log(`Job de copia creado para ${testName}`);
         } catch (error) {
-            this.logger.error(`Error copiando resultados para ${testName}:`, error);
+            this.logger.error(`Error creating K6 experiment ${finalExperimentId}:`, error);
             throw error;
         }
     }
 
-    async createExperiment(payload: any, userId?: string) {
-        const { nombre, replicas, duracion, servicios } = payload;
-        const experimentId = `exp-${Date.now()}`;
-        const userLabel = userId ? `user-${userId}` : 'anonymous';
-        for (const servicio of servicios) {
-            console.log('servicio', servicio);
-            console.log('nombre', nombre);
-            console.log('payload', payload);
-            const namespace = servicio.namespace;
-            const serviceName = servicio.nombre;
+    async copyResultsToPVC(testName: string, namespace: string, userLabel: string, experimentId: string): Promise<string> {
+        const runnerPodName = `${testName}-runner-0`;
+        const sanitizedTestName = testName.replace(/-+$/, '');
+        const jobName = `${sanitizedTestName}-copy-job`;
 
-            for( const endpoint of servicio.endpoints) {
-                const testName = `${nombre}-${serviceName}-${endpoint.url.replace(/\W+/g, '-')}`;
-                const thresholds = endpoint.thresholds ? this.sanitizeThresholds(endpoint.thresholds) : {};
-                const script = this.generateScript({
-                    duration: endpoint.duracion || duracion,
-                    vus: endpoint.vus,
-                    method: endpoint.metodo,
-                    serviceName,
-                    port: servicio.puerto,
-                    url: endpoint.url,
-                    stages: this.getStages(endpoint, payload),
-                    thresholds,
-                    testName: testName,
-                    user: userLabel,
-                    experiment: experimentId
-                });
-                // Crear PVC en el mismo namespace del pod
-                await this.createPVC(testName.toLowerCase().slice(0, 60), namespace);
-                const k6Test = {
-                    apiVersion: 'k6.io/v1alpha1',
-                    kind: 'TestRun',
+        const copyJob = {
+            apiVersion: 'batch/v1',
+            kind: 'Job',
+            metadata: {
+                name: jobName,
+                namespace,
+                labels: {
+                    app: 'k6-copy',
+                    test: testName
+                }
+            },
+            spec: {
+                ttlSecondsAfterFinished: 300, 
+                template: {
                     metadata: {
-                        name: testName.toLowerCase(),
-                        namespace,
                         labels: {
-                            app: 'k6-tests',
-                            test: testName.toLowerCase(),
-                            experiment: experimentId,
-                            user: userLabel,
-                            service: serviceName,
-                            endpoint: this.generateUrlLabel(endpoint.url)
-                        },
-                        annotations: {
-                            'prometheus.io/scrape': 'true',
-                            'prometheus.io/port': '9090',
-                            'prometheus.io/path': '/metrics'
+                            app: 'k6-copy',
+                            test: testName
                         }
                     },
                     spec: {
-                        parallelism: replicas,
-                        script: {
-                            configMap: {
-                                name: `${testName.toLowerCase()}-script`,
-                                file: 'test.js',
-                            },
-                        },
-                        arguments: `--summary-export=/tmp/output-${testName.toLowerCase()}.json --out json=/tmp/metrics-${testName.toLowerCase()}.json`,
-                        ports: [
+                        serviceAccountName: 'nest-deployer', 
+                        containers: [
                             {
-                                name: 'metrics',
-                                containerPort: 9090,
-                                protocol: 'TCP'
+                                name: 'copy',
+                                image: 'bitnami/kubectl:latest',
+                                command: ['sh', '-c'],
+                                args: [`
+                                    echo "=== Starting copy job for ${testName} ===" &&
+                                    echo "Waiting for pod ${runnerPodName} to exist..." &&
+                                    for i in {1..60}; do
+                                      if kubectl get pod ${runnerPodName} -n ${namespace} >/dev/null 2>&1; then
+                                        echo "Pod ${runnerPodName} found"
+                                        break
+                                      fi
+                                      if [ $i -eq 60 ]; then
+                                        echo "⚠️ Pod ${runnerPodName} not found after 60 attempts"
+                                        exit 1
+                                      fi
+                                      sleep 2
+                                    done &&
+                                    echo "Waiting for pod ${runnerPodName} to be ready..." &&
+                                    kubectl wait --for=condition=ready pod/${runnerPodName} -n ${namespace} --timeout=300s || echo "⚠️ Pod not ready, continuing anyway..." &&
+                                    echo "Waiting for test to complete (checking TestRun status)..." &&
+                                    for i in {1..120}; do
+                                      PHASE=$(kubectl get testrun ${testName} -n ${namespace} -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
+                                      echo "TestRun phase: $PHASE (attempt $i/120)"
+                                      if [ "$PHASE" = "complete" ] || [ "$PHASE" = "Complete" ] || [ "$PHASE" = "COMPLETE" ]; then
+                                        echo "TestRun completed"
+                                        break
+                                      fi
+                                      if [ "$PHASE" = "error" ] || [ "$PHASE" = "Error" ] || [ "$PHASE" = "ERROR" ]; then
+                                        echo "⚠️ TestRun failed"
+                                        break
+                                      fi
+                                      if [ $i -eq 120 ]; then
+                                        echo "⚠️ TestRun did not complete in time, proceeding anyway"
+                                        break
+                                      fi
+                                      sleep 5
+                                    done &&
+                                    echo "Waiting additional 10 seconds for files to be written..." &&
+                                    sleep 10 &&
+                                    mkdir -p /test-result/${userLabel}/${experimentId} &&
+                                    echo "=== Listing files in pod ${runnerPodName} ===" &&
+                                    kubectl exec ${runnerPodName} -n ${namespace} -- ls -la /tmp/ 2>&1 || echo "⚠️ Could not list files in pod" &&
+                                    echo "=== Looking for test files ===" &&
+                                    kubectl exec ${runnerPodName} -n ${namespace} -- sh -c "ls -la /tmp/*.json 2>/dev/null || echo 'No JSON files found'" &&
+                                    echo "=== Copying test results ===" &&
+                                    kubectl cp ${namespace}/${runnerPodName}:/tmp /test-result/${userLabel}/${experimentId} --retries=3 || echo "⚠️ Copy failed, continuing..." &&
+                                    echo "=== Copy job completed ==="
+                                `],
+                                volumeMounts: [
+                                    {
+                                        name: 'test-result',
+                                        mountPath: '/test-result'
+                                    }
+                                ]
                             }
-                        ]
-                    },
-                };
-                const configMap = {
-                    apiVersion: 'v1',
-                    kind: 'ConfigMap',
-                    metadata: {
-                        name: `${testName.toLowerCase()}-script`,
-                        namespace,
-                    },
-                    data: {
-                        'test.js': script,
-                    },
-                };
-
-                const k6Service = {
-                    apiVersion: 'v1',
-                    kind: 'Service',
-                    metadata: {
-                        name: `${testName.toLowerCase()}-metrics`,
-                        namespace,
-                        labels: {
-                            app: 'k6-tests',
-                            test: testName.toLowerCase(),
-                            experiment: experimentId,
-                            user: userLabel
-                        }
-                    },
-                    spec: {
-                        selector: {
-                            app: 'k6-tests',
-                            test: testName.toLowerCase()
-                        },
-                        ports: [
+                        ],
+                        volumes: [
                             {
-                                name: 'metrics',
-                                port: 9090,
-                                targetPort: 9090,
-                                protocol: 'TCP'
+                                name: 'test-result',
+                                persistentVolumeClaim: {
+                                    claimName: `${sanitizedTestName}-pvc`
+                                }
                             }
-                        ]
+                        ],
+                        restartPolicy: 'Never'
                     }
-                };
-
-                try {
-                    await this.coreV1Api.createNamespacedConfigMap({
-                        namespace,
-                        body: configMap,
-                    });
-                    await this.coreV1Api.createNamespacedService({
-                        namespace,
-                        body: k6Service,
-                    });
-                    console.log('namespace', namespace);
-                    console.log('configmap ', configMap)
-                    await this.customApi.createNamespacedCustomObject({
-                        group: 'k6.io',
-                        version: 'v1alpha1',
-                        namespace,
-                        plural: 'testruns',
-                        body: k6Test,
-                    });
-                    this.logger.log(`K6Test creado ${testName} en namespace ${namespace} con métricas en puerto 9090`);
-                    
-                    // Calcular duración del test en milisegundos
-                    const testDurationMs = this.parseDurationToMs(duracion);
-                    const delayMs = testDurationMs + 10000; // 10 segundos adicionales para asegurar que termine
-                    
-                    this.logger.log(`Test ${testName} durará ${duracion}, procesando resultados en ${delayMs/1000} segundos`);
-                    
-                    // Programar procesamiento de métricas después de que termine el test
-                    setTimeout(async () => {
-                        try {
-                            // Copiar resultados del pod al PVC
-                            await this.copyResultsToPVC(testName.toLowerCase(), namespace, userLabel, experimentId);
-                            // Procesar métricas
-                            await this.metricsProcessor.processK6Metrics(userLabel, experimentId, testName);
-                        } catch (error) {
-                            this.logger.error(`Error procesando métricas para ${testName}:`, error);
-                        }
-                    }, delayMs);
-                    
-                } catch (error) {
-                    this.logger.error(`Error creando K6Test ${testName} en namespace ${namespace}`, error);
-                    throw error;
                 }
             }
+        };
+
+        try {
+            await this.batchV1Api.createNamespacedJob({ namespace, body: copyJob });
+            this.logger.log(`Copy job ${jobName} created for test ${testName}`);
+            
+            await this.waitForJobCompletion(jobName, namespace);
+            
+            return `/test-result/${userLabel}/${experimentId}`;
+        } catch (error) {
+            this.logger.error(`Error creating copy job for test ${testName} in namespace ${namespace}`, error);
+            throw error;
         }
     }
 }

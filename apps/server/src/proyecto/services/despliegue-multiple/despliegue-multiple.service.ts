@@ -1,22 +1,21 @@
-/** NestJS */
+
 import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-/** Dtos */
+
 import { CreateDeploymentDto, UpdateDeploymentDto } from '../../dtos/despliegue.dto';
-/** Entities */
+
 import { Proyecto } from '../../entities/proyecto.entity';
 import { Despliegue } from '../../entities/despliegue.entity';
-/** Services */
+
 import { ProyectoService } from '../proyecto/proyecto.service';
-/** Utils */
+
 import * as fs from 'fs-extra';
 import * as yaml from 'js-yaml';
 import { DespliegueService } from '../despliegue/despliegue.service';
 import { spawn } from 'child_process';
 import { KubernetesService } from '../../../kubernetes/kubernetes.service';
 
-/** Intefaces para el despliegue con docker-compose */
 interface ServiceConfig {
   image: string;
   container_name: string;
@@ -46,7 +45,6 @@ export class DespliegueMultipleService {
     private proyectoService: ProyectoService,
   ) { }
 
-  /** Revisa si los microservicios están en un mismo repo o no */
   async validateProjectToDeploy(data: CreateDeploymentDto) {
     const proyecto = await this.proyectoService.findOne(data.fk_proyecto);
     if (!proyecto) {
@@ -59,16 +57,10 @@ export class DespliegueMultipleService {
 
     if (proyecto.docker_compose) {
       if (proyecto.dockerfile) {
-        /**
-         * Docker compose con servicios que tiene image o build
-         * PERO los servicios no tienen puertos en el compose, sino que toca sacarlos del Dockerfile que se construye
-         * Para la construcción, se debe tomar el path de "build", ir allí, construir la imagen y sacar el puerto de dockerfile
-         */
+        
         return this.recorrerCadaCarpetaDelRepoParaDockerfile(proyecto, data, tempDir);
       } else {
-        /**
-         * Docker compose con servicios que tienen image o build
-         */
+        
         return await this.pullAndPushImageFromDockerCompose(proyecto, data, tempDir);
       }
     }
@@ -116,7 +108,6 @@ export class DespliegueMultipleService {
 
   }
 
-  /** Crear imágenes en el registro local si el repositorio tiene docker-compose */
   private async pullAndPushImageFromDockerCompose(proyecto: Proyecto, data: CreateDeploymentDto, tempDir: string) {
     try {
       const composeData = this.parseDockerCompose(`${tempDir}/docker-compose.yml`);
@@ -298,10 +289,9 @@ targetCPUUtilizationPercentage: ${data.utilization_cpu == undefined ? 80 : data.
     }
   }
 
-  // Agrego el + 6 porque son los pods de grafana y prometheus
   executeInBackground = async (nombresDespliegues: string[], namespace: string) => {
     return new Promise((resolve, reject) => {
-      const timeoutSeconds = 300; // 5 minutos (en segundos)
+      const timeoutSeconds = 300; 
       const startTime = Math.floor(Date.now() / 1000);
       const subprocess = spawn('bash');
       subprocess.stdin.write(`

@@ -34,10 +34,7 @@
                 </td>
                 }
                 <td>
-                  <!-- <a class="btn btn-outline-dark btn-icon"
-                                        [routerLink]="[ROUTES_APP.VER_PROYECTO, proyecto.id_proyecto]">
-                                        Ver
-                                    </a> -->
+                  
                   <button type="button" class="btn btn-outline-dark btn-icon" data-bs-toggle="modal"
                     data-bs-target="#exampleModal" (click)="getProyecto(proyecto.id_proyecto)">
                     Ver
@@ -177,12 +174,7 @@
                     </div>
                   </div>
                 </td>
-                <!-- <td>
-                                    <a class="btn btn-outline-primary btn-icon"
-                                        [routerLink]="[ROUTES_APP.EDIT_PROYECTO, proyecto.id_proyecto]">
-                                        Editar
-                                    </a>
-                                </td> -->
+                
                 <td>
                   <a class="btn btn-outline-danger btn-icon" (click)="eliminarProyecto(proyecto?.id_proyecto || 0)">
                     Eliminar

@@ -11,4 +11,4 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi  # Más espacio para todos los usuarios
+      storage: 10Gi

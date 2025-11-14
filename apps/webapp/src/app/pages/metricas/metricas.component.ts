@@ -20,13 +20,7 @@ import { MetricaInterface } from '../../core/interfaces/metrica';
   styleUrl: './metricas.component.css'
 })
 export class MetricasComponent implements OnInit {
-  // lista quemada de atributos
-  // atributos: Atributo[] = [
-  //   new Atributo(1,'Eficiencia de Rendimiento', 'Eficiencia de rendimiento se refiere al rendimiento relacionado con la cantidad de recursos utilizados.', [
-  //     new SubAtributoInterface ('Comportamiento Temporal'), 'Utilización de Recursos', 'Elasticidad']),
-  //   new Atributo(2,'Fiabilidad', 'La fiabilidad se refiere a qué tan bien un sistema, producto o componente realiza funciones específicas en condiciones específicas.', ['Madurez', 'Disponibilidad', 'Tolerancia a Fallos', 'Recuperación de Fallos']),
-  //   new Atributo(3,'Seguridad', 'La seguridad se refiere a qué tan bien un producto o sistema protege la información y los datos de las vulnerabilidades de seguridad.', ['Confidencialidad', 'Integridad', 'Responsabilidad'])
-  // ];
+
   atributos: AtributoInterface[] = []
   ids_metricas: number[] = [];
   iframes: string[] = [];
@@ -112,10 +106,9 @@ export class MetricasComponent implements OnInit {
           console.error('Error creando el experimento', error);
           this.hideLoading();
           Swal.fire('Error', 'Ocurrió un error al crear el experimento', error);
-          // this.hideLoading();
+          
         }
-        // console.log(despliegue);
-        // this.router.navigateByUrl('/despliegues');
+
       });
     }
   }

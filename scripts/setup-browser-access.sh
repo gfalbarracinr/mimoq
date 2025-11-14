@@ -2,7 +2,6 @@
 
 echo "🌐 Configurando acceso desde navegador para producción..."
 
-# Obtener la IP del cluster
 CLUSTER_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="InternalIP")].address}')
 
 if [ -z "$CLUSTER_IP" ]; then
@@ -12,7 +11,6 @@ fi
 
 echo "📍 IP del cluster: $CLUSTER_IP"
 
-# Verificar si el Ingress Controller está instalado
 if ! kubectl get pods -n ingress-nginx 2>/dev/null | grep -q "ingress-nginx"; then
     echo "📦 Instalando NGINX Ingress Controller..."
     kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.8.2/deploy/static/provider/cloud/deploy.yaml
@@ -24,7 +22,6 @@ if ! kubectl get pods -n ingress-nginx 2>/dev/null | grep -q "ingress-nginx"; th
       --timeout=300s
 fi
 
-# Obtener la IP del LoadBalancer del Ingress Controller
 INGRESS_IP=$(kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 
 if [ -z "$INGRESS_IP" ]; then
@@ -36,7 +33,6 @@ else
     echo "📍 Acceso: http://$INGRESS_IP"
 fi
 
-# Agregar entrada a /etc/hosts
 echo "📝 Agregando entrada a /etc/hosts..."
 if ! grep -q "mimoq.local" /etc/hosts; then
     echo "$INGRESS_IP mimoq.local" | sudo tee -a /etc/hosts
