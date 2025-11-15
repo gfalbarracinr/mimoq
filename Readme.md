@@ -131,8 +131,8 @@ make clean-test
 ### Access Points
 
 After deployment:
-- **Application**: `http://mimoq.local`
-- **API**: `http://mimoq.local/api`
+- **Application**: `http://mimoq.local:30316/`
+- **API**: `http://mimoq.local:31321/api`
 - **Monitoring**: Configure port-forward to access Prometheus/Grafana
 
 ## Updating Individual Components in production (on-premise cluster)
