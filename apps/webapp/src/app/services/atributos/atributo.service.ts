@@ -14,7 +14,7 @@ export class AtributoService {
 
   constructor(private httpClient: HttpClient, private configService: ConfigService) {
     const config = this.configService.getConfig()
-    if (config.apiHostname === 'mimoq.local') {
+    if (config.apiHostname.startsWith('mimoq.local')) {
       this.urlBackend = `http://${config.apiHostname}/api/atributo/`
     } else {
       this.urlBackend = `http://${config.apiHostname}:3000/api/atributo/`

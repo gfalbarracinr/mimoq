@@ -93,4 +93,13 @@ export class ExperimentoService {
   getIFrames(): string[]{
     return this.iframes;
   }
+
+  ngOnInit(): void {
+    const config = this.configService.getConfig()
+    if (config.apiHostname.startsWith('mimoq.local')) {
+      this.urlBackend = `http://${config.apiHostname}/api/experimento/`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api/experimento/`
+    }
+  }
 }

@@ -8,7 +8,7 @@ const getConfig = () => {
         };
     case 'mimoq.local':
         return {
-            apiHostname: 'mimoq.local',
+            apiHostname: 'mimoq.local:31321',
         };
     default:
         

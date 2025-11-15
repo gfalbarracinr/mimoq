@@ -21,6 +21,10 @@ export class MetricaService implements OnInit{
   }
   ngOnInit(): void {
     const config = this.configService.getConfig()
-    this.urlBackend = `http://${config.apiHostname}:3000/api/atributo/`
+    if (config.apiHostname.startsWith('mimoq.local')) {
+      this.urlBackend = `http://${config.apiHostname}/api/atributo/`
+    } else {
+      this.urlBackend = `http://${config.apiHostname}:3000/api/atributo/`
+    }
   }
 }
