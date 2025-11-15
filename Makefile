@@ -74,19 +74,6 @@ uninstall-monitoring:
 	helm uninstall monitoring --namespace default || true
 	@echo "✅ Monitoring uninstalled successfully."
 
-deploy-server-prod:
-	@echo "🚀 Deploying server to production..."
-	@chmod +x apps/server/deploy-prod.sh
-	@./apps/server/deploy-prod.sh
-
-deploy-webapp-prod:
-	@echo "🚀 Deploying webapp to production..."
-	@chmod +x apps/webapp/deploy-prod.sh
-	@./apps/webapp/deploy-prod.sh
-
-deploy-prod: deploy-server-prod deploy-webapp-prod
-	@echo "✅ Full production deployment completed!"
-
 kustomize-server-prod:
 	@echo "🔍 Previewing server production deployment..."
 	kubectl kustomize apps/server/k8s/kustomize/overlays/production/

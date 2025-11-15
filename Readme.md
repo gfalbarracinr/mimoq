@@ -75,8 +75,16 @@
    ```
    
 6. **Deploy to production:**
+   go to `apps/server` and run the following command in the terminal:
+
    ```bash
-   make deploy-prod
+      ./deploy-prod.sh
+   ```
+
+   then go to `apps/webapp`and run the following command in the terminal:
+
+   ```bash
+      ./deploy-prod.sh
    ```
 
 7. **Setup browser access:**
