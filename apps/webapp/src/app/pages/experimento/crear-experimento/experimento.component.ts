@@ -360,7 +360,7 @@ export class ExperimentoComponent implements OnInit {
       mode: formValue.mode as ChaosMode || ChaosMode.ONE,
       value: formValue.value ? parseInt(formValue.value) : undefined,
       
-      duration: '30s', 
+      duration: this.experimentoForm.get('duracion')?.value || '30s', 
       name: formValue.name || `${microservice.nombre}-${formValue.type}-${Date.now()}`
     };
 

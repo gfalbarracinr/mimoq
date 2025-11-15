@@ -18,7 +18,7 @@ export class ConfigService {
           this.config = { apiHostname: 'localhost' };
           return;
         case 'mimoq.local':
-          this.config = { apiHostname: 'mimoq.local:31321' };
+          this.config = { apiHostname: 'mimoq.local:32010' };
           return;
         default:
           this.config = { apiHostname: 'server' };

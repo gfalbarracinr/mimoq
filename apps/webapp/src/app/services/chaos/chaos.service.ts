@@ -20,7 +20,7 @@ export class ChaosService {
     private configService: ConfigService
   ) {
     const config = this.configService.getConfig();
-    if (config.apiHostname === 'mimoq.local') {
+    if (config.apiHostname.startsWith('mimoq.local')) {
       this.urlBackend = `http://${config.apiHostname}/api/chaos/`;
     } else {
       this.urlBackend = `http://${config.apiHostname}:3000/api/chaos/`;
