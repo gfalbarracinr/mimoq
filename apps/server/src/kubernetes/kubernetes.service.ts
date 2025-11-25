@@ -48,7 +48,7 @@ export class KubernetesService {
             throw error
          }
     }
-    async deployContainers(namespace: string, containers: any[]) {
+    async deployContainers(namespace: string, containers: any[], podsNumber: number) {
         for (const container of containers) {
           const { name, image, port_expose, container_name } = container;
     
@@ -56,7 +56,7 @@ export class KubernetesService {
             metadata: { name, namespace },
             spec: {
               selector: { matchLabels: { app: name } },
-              replicas: 1,
+              replicas: podsNumber,
               template: {
                 metadata: { labels: { app: name } },
                 spec: {
