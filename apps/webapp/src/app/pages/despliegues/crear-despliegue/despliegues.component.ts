@@ -109,7 +109,6 @@ export class DesplieguesComponent implements OnInit {
       const data: Despliegue = {
         nombre_helm: nuevoDespliegue.nombre || '',
         replicas: this.listaReplicas,
-        cant_pods: Number(nuevoDespliegue.cant_pods) || 1,
         namespace: nuevoDespliegue.namespace || 'default',
         fk_proyecto: this.id_proyecto || 0
       }

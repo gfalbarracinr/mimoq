@@ -48,15 +48,16 @@ export class KubernetesService {
             throw error
          }
     }
-    async deployContainers(namespace: string, containers: any[], podsNumber: number) {
-        for (const container of containers) {
+    async deployContainers(namespace: string, containers: any[], podsNumber: number[]) {
+      console.log("containers in k8s ", podsNumber)
+        for (const [index, container] of containers.entries()) {
           const { name, image, port_expose, container_name } = container;
-    
+          console.log("container in k8s loop ", name, image, port_expose, container_name, podsNumber[index], index)
           const deployment: V1Deployment = {
             metadata: { name, namespace },
             spec: {
               selector: { matchLabels: { app: name } },
-              replicas: podsNumber,
+              replicas: podsNumber[index],
               template: {
                 metadata: { labels: { app: name } },
                 spec: {

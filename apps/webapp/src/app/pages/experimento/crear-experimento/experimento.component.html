@@ -12,7 +12,7 @@
               <input type="text" formControlName="nombre" class="form-control"
                 placeholder="Nombre del experimento" id="inputNombre4" min="1" required />
               <div class="invalid-feedback">
-                Duración requerida
+                Nombre requerida
               </div>
             </div>
           </div>
@@ -20,7 +20,7 @@
             <div class="form-group">
               <label class="section-label" for="inputDuracion4">Duración del experimento</label>
               <input type="text" formControlName="duracion" class="form-control"
-                placeholder="Duracion. Ej: 4m" id="inputDuracion4" min="1" required />
+                placeholder="Duracion. Ej: 4m" id="inputDuracion4" min="1" required/>
 
               <div class="invalid-feedback">
                 Duración requerida
@@ -87,7 +87,7 @@
             @if (showChaosForm) {
               <div class="card mt-3" style="background-color: #f8f9fa;">
                 <div class="card-body">
-                  <h5 class="card-title section-label mb-3">Configurar Experimento de Caos</h5>
+                  <h5 class="card-title section-label mb-3">Configurar Inyección de Fallos</h5>
                   <form [formGroup]="chaosForm">
                     <div class="row">
                       <div class="col-md-6">
@@ -116,7 +116,7 @@
                     </div>
 
                     <div class="row">
-                      <div class="col-md-4">
+                      <div class="col-md-6">
                         <div class="form-group">
                           <label class="section-label" for="chaosMode">Modo</label>
                           <select formControlName="mode" class="form-control" id="chaosMode">
@@ -126,19 +126,11 @@
                           </select>
                         </div>
                       </div>
-                      <div class="col-md-4">
+                      <div class="col-md-6">
                         <div class="form-group">
                           <label class="section-label" for="chaosValue">Valor (para fixed/fixed-percent)</label>
                           <input type="number" formControlName="value" class="form-control" 
                             id="chaosValue" placeholder="1" />
-                        </div>
-                      </div>
-                      <div class="col-md-4">
-                        <div class="form-group">
-                          <label class="section-label">Duración</label>
-                          <div class="alert alert-info" style="margin-bottom: 0; padding: 8px 12px; font-size: 0.9em;">
-                            <i class="bi bi-info-circle"></i> Se sincronizará automáticamente con la duración del test de K6
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -217,25 +209,18 @@
                     @if (isStressType(selectedChaosType)) {
                       <div class="row mt-3" style="background-color: #e9ecef; padding: 15px; border-radius: 5px;">
                         <h6 class="section-label mb-3">Configuración de Estrés</h6>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                           <div class="form-group">
                             <label class="section-label" for="stressWorkers">Workers</label>
                             <input type="number" formControlName="stressWorkers" class="form-control" 
                               id="stressWorkers" placeholder="4" />
                           </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                           <div class="form-group">
                             <label class="section-label" for="stressLoad">Carga (%)</label>
                             <input type="number" formControlName="stressLoad" class="form-control" 
                               id="stressLoad" placeholder="80" />
-                          </div>
-                        </div>
-                        <div class="col-md-4">
-                          <div class="form-group">
-                            <label class="section-label" for="stressDuration">Duración (ej: 60s)</label>
-                            <input type="text" formControlName="stressDuration" class="form-control" 
-                              id="stressDuration" placeholder="60s" />
                           </div>
                         </div>
                       </div>
@@ -243,7 +228,7 @@
 
                     <div class="text-center form-conent mt-3">
                       <button type="button" class="btn btn-success btn-xl" (click)="addChaosExperiment()">
-                        Añadir Experimento de Caos
+                        Añadir Falla
                       </button>
                     </div>
                   </form>
@@ -262,7 +247,6 @@
                           <th>Tipo</th>
                           <th>Namespace</th>
                           <th>Selector</th>
-                          <th>Duración</th>
                           <th>Modo</th>
                           <th>Acción</th>
                         </tr>
@@ -273,7 +257,6 @@
                             <td>{{ experiment.type }}</td>
                             <td>{{ experiment.namespace }}</td>
                             <td>{{ formatSelector(experiment.selector) }}</td>
-                            <td>{{ experiment.duration }}</td>
                             <td>{{ experiment.mode }}</td>
                             <td>
                               <button type="button" class="btn btn-sm btn-danger" 

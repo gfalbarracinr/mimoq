@@ -19,11 +19,6 @@ export class CreateDeploymentDto {
   @IsNumber({}, { each: true })
   @ApiProperty()
   readonly replicas: number[];
-  @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  @ApiProperty()
-  readonly cant_pods: number;
   @IsNotEmpty({ message: 'El nombre del namespace es obligatorio' })
   @IsString()
   @ApiProperty()

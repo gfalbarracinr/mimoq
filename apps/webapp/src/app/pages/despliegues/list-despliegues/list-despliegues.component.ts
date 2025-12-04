@@ -29,7 +29,7 @@ export class ListDesplieguesComponent implements OnInit {
           if (index === -1) {
             despliegueTemp.nombre_helm = despliegue.nombre_helm;
             despliegueTemp.namespace = despliegue.namespace;
-            despliegueTemp.cant_pods = despliegue.cant_pods;
+            despliegueTemp.cant_pods = despliegue.cant_replicas;
               this.desplieguesAgrupados.push(despliegueTemp); 
           } else {
               this.desplieguesAgrupados[index]?.despliegues?.push(despliegue) ?? [];

@@ -6,7 +6,8 @@ import {
   Validators,
   FormArray,
   ReactiveFormsModule,
-  FormsModule
+  FormsModule,
+  AbstractControl
 } from '@angular/forms';
 import { NgxPaginationModule } from 'ngx-pagination';
 import { DespliegueService } from '../../../services/despliegue/despliegue.service';
@@ -24,7 +25,6 @@ export class AddEndpointComponent {
   experimentoForm = new FormGroup({
     url: new FormControl('', Validators.required),
     metodo: new FormControl('GET', Validators.required),
-    duracion: new FormControl('30s', Validators.required),
     vus: new FormControl(10, [Validators.required, Validators.min(1)]),
     thresholds: new FormControl(''),
     parametros: new FormControl(''),
@@ -42,7 +42,8 @@ export class AddEndpointComponent {
   private endpoint!: string
   name!: string
   endpointsSignal: any;
-  
+  duration!: string;
+  nameExperiment!: string;
   constructor(private despliegueService: DespliegueService,
      private route: ActivatedRoute, 
      private experimentoService: ExperimentoV2Service, 
@@ -54,6 +55,8 @@ export class AddEndpointComponent {
     this.method = this.route.snapshot.queryParamMap.get('method')!
     this.endpoint = this.route.snapshot.queryParamMap.get('endpointUrl')!
     this.endpointsSignal = this.experimentoService.getEndpoints(this.id);
+    this.duration = this.route.snapshot.queryParamMap.get('duration')!
+    this.nameExperiment = this.route.snapshot.queryParamMap.get('nameExperiment')!
     if (this.method === 'edit') {
       const payload = this.experimentoService.getEndpoints(this.id)?.find((endpoint: any) => endpoint.url === this.encodeURL(this.endpoint))
       console.log("payload edit ", payload, this.experimentoService.getEndpoints(this.id), this.endpoint, this.encodeURL(this.endpoint))
@@ -73,9 +76,16 @@ export class AddEndpointComponent {
     return this.experimentoForm.get('rampUpStages') as FormArray;
   }
 
+  validateDurationSum() {
+    return (control: AbstractControl) => {
+      const duration = control.value;
+      const totalDuration = convertirTiempoASegundos(this.duration);
+      return duration && convertirTiempoASegundos(duration) > totalDuration ? { durationSum: true } : null;
+    }
+  }
   crearRampStage(duration = '', target = 10): FormGroup {
     return new FormGroup({
-      duration: new FormControl(duration, Validators.required), 
+      duration: new FormControl(duration, [Validators.required, this.validateDurationSum()]),
       target: new FormControl(target, [Validators.required, Validators.min(1)])
     });
   }
@@ -105,18 +115,26 @@ export class AddEndpointComponent {
     this.experimentoForm.markAllAsTouched();
 
     if (this.experimentoForm.invalid) {
-      console.warn('Formulario inválido', this.experimentoForm.value);
       return;
     }
 
     const payload = this.experimentoForm.value;
-    console.log('Enviar configuración del experimento:', payload);
     if (this.method === 'edit') {
       this.experimentoService.updateEndpoint(this.id, payload)
-      this.router.navigateByUrl('/experimento/crear');
+      this.router.navigate(['/experimento/crear'], {
+        queryParams: {
+          nameExperiment: this.nameExperiment,
+          duration: this.duration
+        }
+      });
     } else {
       this.experimentoService.addEndpointToPayload(this.id, payload)
-      this.router.navigateByUrl('/experimento/crear');
+      this.router.navigate(['/experimento/crear'],{
+        queryParams: {
+          nameExperiment: this.nameExperiment,
+          duration: this.duration
+        }
+      });
     }
 
   }
@@ -124,7 +142,6 @@ export class AddEndpointComponent {
   onReset() {
     this.experimentoForm.reset({
       metodo: 'GET',
-      duracion: '30s',
       vus: 10,
       enableRampUp: false,
       enableCoolDown: false
@@ -133,7 +150,33 @@ export class AddEndpointComponent {
     while (this.rampUpStages.length) this.rampUpStages.removeAt(0);
   }
   onDelete() {
-    this.experimentoService.deleteEndpoint(this.id, this.endpoint)
-    this.router.navigateByUrl('/experimento/crear');
+    this.experimentoService.deleteEndpoint(this.id, this.endpoint);
+    this.router.navigate(['/experimento/crear'], {
+      queryParams: {
+        nameExperiment: this.nameExperiment,
+        duration: this.duration
+      }
+    });
   }
+}
+
+function convertirTiempoASegundos(tiempo: string): number {
+  const unidades: { [key: string]: number } = {
+    's': 1 / 60,
+    'm': 1,
+    'h': 60,
+    'd': 1440
+  };
+
+  const regex = /(\d+)([smhd])/g;
+  let sumaSegundos = 0;
+
+  let match;
+  while ((match = regex.exec(tiempo)) !== null) {
+    const cantidad = parseInt(match[1]);
+    const unidad = match[2];
+    sumaSegundos += cantidad * unidades[unidad];
+  }
+
+  return sumaSegundos;
 }

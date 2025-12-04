@@ -71,7 +71,7 @@ export class DespliegueMultipleService {
       const composeData = this.parseDockerCompose(`${tempDir}/docker-compose.yml`);
       const imagesToBuild = this.dockerImageBuildParameters(composeData);
       await this.kubernetesService.createNamespace(data.namespace)
-      await this.kubernetesService.deployContainers(data.namespace, imagesToBuild, data.cant_pods)
+      await this.kubernetesService.deployContainers(data.namespace, imagesToBuild, data.replicas)
       return await this.saveDeployToDB(imagesToBuild, data, proyecto)
     } catch (error) {
       console.error(`Error en buildAndPushMultipleImage: ${error.message}`);
@@ -85,7 +85,7 @@ export class DespliegueMultipleService {
       console.log("container ", container)
       const newDeployment = this.despliegueRepo.create(data);
       newDeployment.nombre = container.name,
-      newDeployment.cant_replicas = data.cant_pods;
+      newDeployment.cant_replicas = data.replicas.reduce((acc, curr) => acc + curr, 0);
       newDeployment.puerto = container.port_expose;
       try {
         await this.despliegueRepo.save(newDeployment)

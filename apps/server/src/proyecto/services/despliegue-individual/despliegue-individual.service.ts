@@ -37,7 +37,7 @@ export class DespliegueIndividualService {
         const existingDeployment = await this.despliegueRepo.findOne({
             where: {
                 nombre_helm: data.nombre_helm,
-                cant_pods: data.cant_pods,
+                cant_pods: data.replicas.reduce((acc, curr) => acc + curr, 0),
                 namespace: data.namespace,
                 proyecto: proyecto
             }

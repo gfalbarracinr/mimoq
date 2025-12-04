@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormControl, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Carga } from '../../../core/model/carga/carga';
 import { ExperimentoService } from '../../../services/experimento/experimento.service';
 import { DespliegueService } from '../../../services/despliegue/despliegue.service';
@@ -35,6 +35,8 @@ export class ExperimentoComponent implements OnInit {
   duracion_picos: string[] = [];
   despliegues: DespliegueInterface[] = [];
   endpoints: string[] = [];
+  nameExperiment!: string;
+  duration!: string;
   status: boolean = false;
   showChaosForm: boolean = false;
   chaosExperiments: CreateChaosExperimentDto[] = [];
@@ -80,6 +82,7 @@ export class ExperimentoComponent implements OnInit {
 
   constructor(
     private router: Router,
+    private route: ActivatedRoute, 
     private experimentoService: ExperimentoService,
     private cargaService: CargaService,
     private despliegueService: DespliegueService,
@@ -93,7 +96,14 @@ export class ExperimentoComponent implements OnInit {
       console.log('Microservicios', this.despliegues)
       this.cargarMicroservicios();
       console.log('La espera ha terminado');
-    
+      this.nameExperiment = this.route.snapshot.queryParamMap.get('nameExperiment')!
+      this.duration = this.route.snapshot.queryParamMap.get('duration')!
+      console.log('nameExperiment', this.nameExperiment);
+      console.log('duration', this.duration);
+      this.experimentoForm.patchValue({
+        nombre: this.nameExperiment,
+        duracion: this.duration
+      });
   }
 
   get cargas() {
@@ -267,7 +277,12 @@ export class ExperimentoComponent implements OnInit {
     Swal.close();
   }
   addEndpoint(id:number) {
-    this.router.navigate([`/microservice/${id}/endpoint`])
+    this.router.navigate([`/microservice/${id}/endpoint`], { 
+      queryParams: { 
+        duration: this.experimentoForm.get('duracion')?.value as string, 
+        nameExperiment: this.experimentoForm.get('nombre')?.value as string
+      }
+    })
   }
 
   toggleChaosForm() {
@@ -393,7 +408,7 @@ export class ExperimentoComponent implements OnInit {
       chaosExperiment.stress = {
         workers: parseInt(formValue.stressWorkers),
         load: parseInt(formValue.stressLoad),
-        duration: formValue.stressDuration
+        duration: this.experimentoForm.get('duracion')?.value || '30s',
       };
     }
 
@@ -433,27 +448,6 @@ export class ExperimentoComponent implements OnInit {
   formatSelector(selector: Record<string, string>): string {
     return Object.entries(selector).map(([key, value]) => `${key}=${value}`).join(', ');
   }
-}
-
-function convertirTiempoASegundos(tiempo: string): number {
-  const unidades: { [key: string]: number } = {
-    's': 1 / 60,
-    'm': 1,
-    'h': 60,
-    'd': 1440
-  };
-
-  const regex = /(\d+)([smhd])/g;
-  let sumaSegundos = 0;
-
-  let match;
-  while ((match = regex.exec(tiempo)) !== null) {
-    const cantidad = parseInt(match[1]);
-    const unidad = match[2];
-    sumaSegundos += cantidad * unidades[unidad];
-  }
-
-  return sumaSegundos;
 }
 
 function sumarTiemposPorPosicion(tiempos: string[]): string[] {
