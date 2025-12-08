@@ -225,7 +225,8 @@ export class ListExperimentosComponent implements OnInit {
         nombre: 'Peticiones HTTP',
         descripcion: 'Métricas de peticiones HTTP',
         metricas: [
-          { id: 'http_requests', nombre: 'Total de Peticiones', descripcion: 'Número total de peticiones HTTP', disponible: true }
+          { id: 'http_requests', nombre: 'Total de Peticiones', descripcion: 'Número total de peticiones HTTP', disponible: true },
+          { id: 'http_status', nombre: 'Status HTTP', descripcion: 'Peticiones agrupadas por código de status (200, 404, 500, etc.)', disponible: true }
         ]
       },
       {

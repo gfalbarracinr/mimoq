@@ -58,9 +58,14 @@ export class MetricsProcessorService {
                 ? experimentos[0].nombre 
                 : testName.toLowerCase();
             
-            this.logger.log(`Procesando métricas para experimento: ${experimentName} (experiment_id: ${experimentId})`);
+            // Obtener número de repetición del experimento si existe
+            const repetitionNumber = experimentos.length > 0 && experimentos[0].numero_repeticion !== null 
+                ? experimentos[0].numero_repeticion 
+                : undefined;
+            
+            this.logger.log(`Procesando métricas para experimento: ${experimentName} (experiment_id: ${experimentId}, repetición: ${repetitionNumber !== undefined ? repetitionNumber : 'N/A'})`);
 
-            const csvFileName = await this.generateAndSaveCSV(metricsData, experimentName, testName, experimentId, additionalLabels);
+            const csvFileName = await this.generateAndSaveCSV(metricsData, experimentName, testName, experimentId, additionalLabels, repetitionNumber);
 
             if (csvFileName) {
                 await this.updateExperimentoFiles(experimentId, csvFileName, experimentName);
@@ -201,7 +206,7 @@ export class MetricsProcessorService {
         }
     }
 
-    private async generateAndSaveCSV(metricsData: any, experimentName: string, testName: string, experimentId: string, additionalLabels?: Record<string, string>): Promise<string | null> {
+    private async generateAndSaveCSV(metricsData: any, experimentName: string, testName: string, experimentId: string, additionalLabels?: Record<string, string>, repetitionNumber?: number): Promise<string | null> {
         try {
             if (!metricsData.metrics) {
                 this.logger.warn('No metrics data available for CSV generation');
@@ -266,7 +271,8 @@ export class MetricsProcessorService {
 
             const serviceName = additionalLabels?.service || 'unknown';
             const endpoint = additionalLabels?.endpoint || 'unknown';
-            const csvFileName = `${testName.toLowerCase()}-${serviceName}-${endpoint}.csv`;
+            const repetitionSuffix = repetitionNumber !== undefined ? `-rep-${repetitionNumber}` : '';
+            const csvFileName = `${testName.toLowerCase()}-${serviceName}-${endpoint}${repetitionSuffix}.csv`;
 
             const formattedExperimentName = experimentName.toLowerCase().replace(/\s+/g, '-');
 

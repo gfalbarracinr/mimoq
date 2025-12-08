@@ -38,6 +38,9 @@ export class ExperimentoComponent implements OnInit {
   nameExperiment!: string;
   duration!: string;
   status: boolean = false;
+  progressMessage: string = '';
+  currentRepetition: number = 0;
+  totalRepetitions: number = 0;
   showChaosForm: boolean = false;
   chaosExperiments: CreateChaosExperimentDto[] = [];
 
@@ -143,25 +146,38 @@ export class ExperimentoComponent implements OnInit {
       this.chaosExperiments.length > 0 ? this.chaosExperiments : undefined
     );
     console.log('payload with chaos', payload);
-    this.showLoading();
+    
     this.cargaService.createExperiment(payload).subscribe({
       next: (res: any) => {
-        console.log('Experimento creado', res);
+        console.log('Experimentos iniciados', res);
+        
         Swal.fire({
-          title: "Experimento creado",
-          text: "¿Deseas seleccionar métricas para este experimento?",
+          title: "Experimentos iniciados",
+          html: `
+            <p>Se han iniciado <strong>${res.totalRepetitions || 1}</strong> repetición(es) del experimento.</p>
+            <p style="font-size: 14px; color: #666; margin-top: 10px;">
+              Los experimentos se ejecutarán en segundo plano y se guardarán en la base de datos cuando terminen.
+            </p>
+            <p style="font-size: 14px; color: #666;">
+              Puedes verificar el progreso en la lista de experimentos.
+            </p>
+          `,
           icon: "success",
-          showCancelButton: true,
+          confirmButtonText: "Ver experimentos",
           confirmButtonColor: "#3085d6",
-          cancelButtonColor: "#d33",
-          confirmButtonText: "Si",
-          cancelButtonText: "No, ver experimentos"
         }).then((result) => {
-          console.log('result', result);
+          if (result.isConfirmed) {
+            this.router.navigateByUrl('/experimento');
+          }
         });
       }, error: (error: any) => {
-        console.error('Error creando el experimento', error);
-        this.hideLoading();
+        console.error('Error iniciando el experimento', error);
+        Swal.fire({
+          title: "Error",
+          text: error.error?.message || 'Error al iniciar el experimento',
+          icon: "error",
+          confirmButtonText: "Aceptar"
+        });
       }
     });
   }
@@ -264,12 +280,47 @@ export class ExperimentoComponent implements OnInit {
     return check;
   }
   showLoading() {
+    this.currentRepetition = 0;
+    this.totalRepetitions = this.experimentoForm.get('replicas')?.value || 1;
+    this.progressMessage = 'Iniciando experimento...';
+    
     Swal.fire({
-      title: 'Cargando...',
-      text: 'Por favor espera!',
+      title: 'Ejecutando experimento...',
+      html: `
+        <div style="text-align: center;">
+          <div class="spinner-border text-primary" role="status" style="margin-bottom: 20px;">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p id="progress-message" style="margin-top: 20px; font-size: 16px;">${this.progressMessage}</p>
+          <p id="progress-counter" style="margin-top: 10px; font-size: 14px; color: #666;">
+            Repetición: <strong>${this.currentRepetition}</strong> de <strong>${this.totalRepetitions}</strong>
+          </p>
+        </div>
+      `,
       allowOutsideClick: false,
+      allowEscapeKey: false,
+      showConfirmButton: false,
       didOpen: () => {
-        Swal.showLoading();
+        // Actualizar el mensaje periódicamente
+        const progressInterval = setInterval(() => {
+          const progressMsgEl = document.getElementById('progress-message');
+          const progressCounterEl = document.getElementById('progress-counter');
+          if (progressMsgEl) {
+            progressMsgEl.textContent = this.progressMessage;
+          }
+          if (progressCounterEl) {
+            progressCounterEl.innerHTML = `Repetición: <strong>${this.currentRepetition}</strong> de <strong>${this.totalRepetitions}</strong>`;
+          }
+        }, 500);
+        
+        // Guardar el interval para limpiarlo después
+        (Swal.getContainer() as any).progressInterval = progressInterval;
+      },
+      willClose: () => {
+        const container = Swal.getContainer() as any;
+        if (container && container.progressInterval) {
+          clearInterval(container.progressInterval);
+        }
       }
     });
   }
@@ -447,6 +498,26 @@ export class ExperimentoComponent implements OnInit {
 
   formatSelector(selector: Record<string, string>): string {
     return Object.entries(selector).map(([key, value]) => `${key}=${value}`).join(', ');
+  }
+
+  parseDurationToSeconds(tiempo: string): number {
+    const unidades: { [key: string]: number } = {
+      's': 1,
+      'm': 60,
+      'h': 3600,
+      'd': 86400
+    };
+
+    const regex = /(\d+)([smhd])/;
+    const match = tiempo.match(regex);
+
+    if (match) {
+      const cantidad = parseInt(match[1]);
+      const unidad = match[2];
+      return cantidad * unidades[unidad];
+    } else {
+      return 30; // default 30 segundos
+    }
   }
 }
 

@@ -310,6 +310,61 @@ export class PrometheusService {
     return metrics;
   }
 
+  async getHTTPStatusMetrics(
+    serviceNames: string[],
+    namespace: string,
+    startTime: Date,
+    endTime: Date
+  ): Promise<Record<string, PrometheusQueryResult[]>> {
+    const start = Math.floor(startTime.getTime() / 1000);
+    const end = Math.floor(endTime.getTime() / 1000);
+    const step = '15s';
+
+    const metrics: Record<string, PrometheusQueryResult[]> = {};
+    
+    // Status codes comunes a consultar
+    const statusCodes = ['200', '201', '400', '401', '403', '404', '500', '502', '503', '504'];
+
+    for (const serviceName of serviceNames) {
+      for (const statusCode of statusCodes) {
+        try {
+          // Consultar métricas de k6 con label de status_code
+          // k6 expone métricas con el label status_code en k6_http_requests_total
+          const queries = [
+            `sum(rate(k6_http_requests_total{status_code="${statusCode}"}[15s])) by (status_code)`,
+            `sum(rate(k6_http_requests_total{status="${statusCode}"}[15s])) by (status)`,
+            `sum(rate(k6_http_requests_total{status_code="${statusCode}",service="${serviceName}"}[15s]))`,
+            `sum(rate(k6_http_requests_total{status_code="${statusCode}",namespace="${namespace}"}[15s]))`,
+          ];
+
+          for (const query of queries) {
+            try {
+              const response = await this.queryRange({
+                query,
+                start,
+                end,
+                step,
+              });
+
+              if (response.status === 'success' && response.data.result && response.data.result.length > 0) {
+                const metricKey = `http_status_${statusCode}_${serviceName}`;
+                metrics[metricKey] = response.data.result;
+                this.logger.log(`Found HTTP status ${statusCode} metrics for ${serviceName}`);
+                break;
+              }
+            } catch (e) {
+              // Continuar con siguiente query
+            }
+          }
+        } catch (error: any) {
+          // Continuar con siguiente status code
+        }
+      }
+    }
+
+    return metrics;
+  }
+
   async getHTTPLatencyMetrics(
     serviceNames: string[],
     namespace: string,

@@ -8,8 +8,8 @@ import { KubernetesService } from '../kubernetes/kubernetes.service';
 @Injectable()
 export class K6Service {
     private readonly logger = new Logger(K6Service.name);
-    private readonly coreV1Api: CoreV1Api;
-    private readonly customApi: CustomObjectsApi;
+    readonly coreV1Api: CoreV1Api;
+    readonly customApi: CustomObjectsApi;
     private readonly batchV1Api: BatchV1Api;
 
     constructor(private metricsProcessor: MetricsProcessorService, private kubernetesService: KubernetesService) {
@@ -96,17 +96,28 @@ export class K6Service {
     }
 
     private getStages(endpoint: any, payload: any) {
-        const { duracion, vus } = endpoint;
-        const { rampUpStages, coolDownDuration, coolDownTarget, enableCoolDown, enableRampUp } = payload;
+        // Usar duracion del endpoint o del payload como fallback
+        const duracion = endpoint.duracion || payload.duracion || '30s';
+        const vus = endpoint.vus || payload.vus || 1;
+        const { rampUpStages, coolDownDuration, coolDownTarget, enableCoolDown, enableRampUp } = endpoint;
         const stages = [];
-        if (enableRampUp) {
+        
+        // Si no hay rampUp ni coolDown, retornar array vacío para usar duration directamente
+        if (!enableRampUp && !enableCoolDown) {
+            return [];
+        }
+        
+        if (enableRampUp && rampUpStages && Array.isArray(rampUpStages) && rampUpStages.length > 0) {
             stages.push(...rampUpStages.map(stage => ({ duration: stage.duration, target: stage.target })));
         }
+        
+        // Agregar el stage principal con la duración (del endpoint o payload)
         stages.push({ duration: duracion, target: vus });
 
-        if (enableCoolDown) {
-            stages.push({ duration: coolDownDuration, target: coolDownTarget });
+        if (enableCoolDown && coolDownDuration) {
+            stages.push({ duration: coolDownDuration, target: coolDownTarget || 0 });
         }
+        
         return stages;
     }
 
@@ -129,7 +140,7 @@ export class K6Service {
         } catch (error: any) {
 
             if (error.statusCode === 404 || (error.body && error.body.code === 404)) {
-                this.logger.log(`K6 TestRun ${name} not found in namespace ${namespace} - marking as failed`);
+                // No loguear como warning si es 404 - es esperado que algunos TestRuns no existan
                 return { notFound: true };
             }
             
@@ -138,12 +149,58 @@ export class K6Service {
         }
     }
 
+    async waitForTestRunCompletion(testRunName: string, namespace: string, timeoutMs: number = 1200000): Promise<void> {
+        const startTime = Date.now();
+        const checkInterval = 10000; // Verificar cada 10 segundos
+        
+        this.logger.log(`Iniciando espera para TestRun ${testRunName} (timeout: ${timeoutMs}ms)`);
+        
+        while (Date.now() - startTime < timeoutMs) {
+            try {
+                const testRun = await this.getTestRunStatus(testRunName, namespace);
+                
+                if (testRun && testRun.notFound) {
+                    this.logger.warn(`TestRun ${testRunName} not found, esperando...`);
+                    await new Promise(resolve => setTimeout(resolve, checkInterval));
+                    continue;
+                }
+                
+                if (testRun && testRun.status) {
+                    const phase = testRun.status.phase || testRun.status.stage || 'Unknown';
+                    this.logger.log(`TestRun ${testRunName} status: ${phase}`);
+                    
+                    if (phase === 'complete' || phase === 'Complete' || phase === 'COMPLETE') {
+                        this.logger.log(`TestRun ${testRunName} completado exitosamente`);
+                        return;
+                    }
+                    
+                    if (phase === 'error' || phase === 'Error' || phase === 'ERROR' || phase === 'failed' || phase === 'Failed') {
+                        const message = testRun.status.message || 'Unknown error';
+                        this.logger.error(`TestRun ${testRunName} falló: ${message}`);
+                        throw new Error(`TestRun ${testRunName} failed: ${message}`);
+                    }
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, checkInterval));
+            } catch (error: any) {
+                if (error.message && error.message.includes('failed')) {
+                    throw error;
+                }
+                // Si es un error de conexión, continuar esperando
+                this.logger.warn(`Error verificando TestRun ${testRunName}, reintentando...: ${error.message}`);
+                await new Promise(resolve => setTimeout(resolve, checkInterval));
+            }
+        }
+        
+        throw new Error(`TestRun ${testRunName} no completó dentro del timeout de ${timeoutMs}ms`);
+    }
+
     private parseDurationToMs(duration: string): number {
         
         const match = duration.match(/^(\d+)([smhd])$/);
         if (!match) {
             this.logger.warn(`Duración inválida: ${duration}, usando 30s por defecto`);
-            return 30000; 
+            return 30000;
         }
         
         const value = parseInt(match[1]);
@@ -158,7 +215,26 @@ export class K6Service {
         }
     }
 
-    async waitForJobCompletion(jobName: string, namespace: string, timeoutMs: number = 600000): Promise<void> {
+    private parseDurationToSeconds(duration: string): number {
+        const match = duration.match(/^(\d+)([smhd])$/);
+        if (!match) {
+            this.logger.warn(`Duración inválida: ${duration}, usando 30s por defecto`);
+            return 30;
+        }
+        
+        const value = parseInt(match[1]);
+        const unit = match[2];
+        
+        switch (unit) {
+            case 's': return value;
+            case 'm': return value * 60;
+            case 'h': return value * 60 * 60;
+            case 'd': return value * 24 * 60 * 60;
+            default: return 30;
+        }
+    }
+
+    async waitForJobCompletion(jobName: string, namespace: string, timeoutMs: number = 1200000): Promise<void> {
         const startTime = Date.now();
         const checkInterval = 5000; 
         
@@ -225,8 +301,12 @@ export class K6Service {
                         const stages = this.getStages(endpoint, payload);
                         const thresholds = endpoint.thresholds ? this.sanitizeThresholds(endpoint.thresholds) : {};
                         
+                        // Obtener duración correcta (endpoint tiene prioridad, luego payload)
+                        const scriptDuration = endpoint.duracion || payload.duracion || '30s';
+                        this.logger.log(`Generando script para test ${testName} con duración: ${scriptDuration}, stages: ${JSON.stringify(stages)}`);
+                        
                         const script = this.generateScript({
-                            duration: endpoint.duracion || payload.duracion || '30s',
+                            duration: scriptDuration,
                             vus: endpoint.vus || payload.vus || 1,
                             method: endpoint.method || 'GET',
                             serviceName: serviceName,
@@ -238,6 +318,9 @@ export class K6Service {
                             user: user,
                             experiment: finalExperimentId,
                         });
+                        
+                        // Log del script generado para debugging
+                        this.logger.log(`Script generado para ${testName} (primeras 500 chars): ${script.substring(0, 500)}`);
 
                         // Create ConfigMap with script
                         const configMapName = `${sanitizedTestName}-script`;
@@ -270,6 +353,14 @@ export class K6Service {
                             }
                         }
 
+                        // Calcular timeout basado en la duración del test
+                        const runDuration = endpoint.duracion || payload.duracion || '30s';
+                        const durationInSeconds = this.parseDurationToSeconds(runDuration);
+                        // Agregar 5 minutos de margen para setup, teardown, etc.
+                        const activeDeadlineSeconds = durationInSeconds + 300;
+                        
+                        this.logger.log(`Creando TestRun ${sanitizedTestName} con duración: ${runDuration} (${durationInSeconds}s), activeDeadlineSeconds: ${activeDeadlineSeconds}s`);
+                        
                         // Create K6 TestRun
                         const testRun = {
                             apiVersion: 'k6.io/v1alpha1',
@@ -292,6 +383,7 @@ export class K6Service {
                                     },
                                 },
                                 arguments: '--out json=/tmp/results.json',
+                                activeDeadlineSeconds: activeDeadlineSeconds,
                             },
                         };
 
@@ -330,115 +422,4 @@ export class K6Service {
         }
     }
 
-    async copyResultsToPVC(testName: string, namespace: string, userLabel: string, experimentId: string): Promise<string> {
-        const runnerPodName = `${testName}-runner-0`;
-        const sanitizedTestName = testName.replace(/-+$/, '');
-        const jobName = `${sanitizedTestName}-copy-job`;
-
-        const copyJob = {
-            apiVersion: 'batch/v1',
-            kind: 'Job',
-            metadata: {
-                name: jobName,
-                namespace,
-                labels: {
-                    app: 'k6-copy',
-                    test: testName
-                }
-            },
-            spec: {
-                ttlSecondsAfterFinished: 300, 
-                template: {
-                    metadata: {
-                        labels: {
-                            app: 'k6-copy',
-                            test: testName
-                        }
-                    },
-                    spec: {
-                        serviceAccountName: 'nest-deployer', 
-                        containers: [
-                            {
-                                name: 'copy',
-                                image: 'bitnami/kubectl:latest',
-                                command: ['sh', '-c'],
-                                args: [`
-                                    echo "=== Starting copy job for ${testName} ===" &&
-                                    echo "Waiting for pod ${runnerPodName} to exist..." &&
-                                    for i in {1..60}; do
-                                      if kubectl get pod ${runnerPodName} -n ${namespace} >/dev/null 2>&1; then
-                                        echo "Pod ${runnerPodName} found"
-                                        break
-                                      fi
-                                      if [ $i -eq 60 ]; then
-                                        echo "⚠️ Pod ${runnerPodName} not found after 60 attempts"
-                                        exit 1
-                                      fi
-                                      sleep 2
-                                    done &&
-                                    echo "Waiting for pod ${runnerPodName} to be ready..." &&
-                                    kubectl wait --for=condition=ready pod/${runnerPodName} -n ${namespace} --timeout=300s || echo "⚠️ Pod not ready, continuing anyway..." &&
-                                    echo "Waiting for test to complete (checking TestRun status)..." &&
-                                    for i in {1..120}; do
-                                      PHASE=$(kubectl get testrun ${testName} -n ${namespace} -o jsonpath='{.status.phase}' 2>/dev/null || echo "Unknown")
-                                      echo "TestRun phase: $PHASE (attempt $i/120)"
-                                      if [ "$PHASE" = "complete" ] || [ "$PHASE" = "Complete" ] || [ "$PHASE" = "COMPLETE" ]; then
-                                        echo "TestRun completed"
-                                        break
-                                      fi
-                                      if [ "$PHASE" = "error" ] || [ "$PHASE" = "Error" ] || [ "$PHASE" = "ERROR" ]; then
-                                        echo "⚠️ TestRun failed"
-                                        break
-                                      fi
-                                      if [ $i -eq 120 ]; then
-                                        echo "⚠️ TestRun did not complete in time, proceeding anyway"
-                                        break
-                                      fi
-                                      sleep 5
-                                    done &&
-                                    echo "Waiting additional 10 seconds for files to be written..." &&
-                                    sleep 10 &&
-                                    mkdir -p /test-result/${userLabel}/${experimentId} &&
-                                    echo "=== Listing files in pod ${runnerPodName} ===" &&
-                                    kubectl exec ${runnerPodName} -n ${namespace} -- ls -la /tmp/ 2>&1 || echo "⚠️ Could not list files in pod" &&
-                                    echo "=== Looking for test files ===" &&
-                                    kubectl exec ${runnerPodName} -n ${namespace} -- sh -c "ls -la /tmp/*.json 2>/dev/null || echo 'No JSON files found'" &&
-                                    echo "=== Copying test results ===" &&
-                                    kubectl cp ${namespace}/${runnerPodName}:/tmp /test-result/${userLabel}/${experimentId} --retries=3 || echo "⚠️ Copy failed, continuing..." &&
-                                    echo "=== Copy job completed ==="
-                                `],
-                                volumeMounts: [
-                                    {
-                                        name: 'test-result',
-                                        mountPath: '/test-result'
-                                    }
-                                ]
-                            }
-                        ],
-                        volumes: [
-                            {
-                                name: 'test-result',
-                                persistentVolumeClaim: {
-                                    claimName: `${sanitizedTestName}-pvc`
-                                }
-                            }
-                        ],
-                        restartPolicy: 'Never'
-                    }
-                }
-            }
-        };
-
-        try {
-            await this.batchV1Api.createNamespacedJob({ namespace, body: copyJob });
-            this.logger.log(`Copy job ${jobName} created for test ${testName}`);
-            
-            await this.waitForJobCompletion(jobName, namespace);
-            
-            return `/test-result/${userLabel}/${experimentId}`;
-        } catch (error) {
-            this.logger.error(`Error creating copy job for test ${testName} in namespace ${namespace}`, error);
-            throw error;
-        }
-    }
 }

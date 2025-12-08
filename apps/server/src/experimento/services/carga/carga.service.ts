@@ -122,48 +122,18 @@ export class CargaService {
         }
     }
 
-    async executeExperiment(payload: any) {
+    async executeExperiment(payload: any, progressCallback?: (progress: any) => void) {
         try {
             const { chaosExperiments, ...k6Payload } = payload;
 
-            const experimentId = `exp-${Date.now()}`;
-
+            // Obtener número de repeticiones (default: 1)
+            const numRepetitions = k6Payload.replicas || 1;
             const k6Duration = this.calculateMaxK6Duration(k6Payload);
+            const delayMs = 60000; // 1 minuto entre repeticiones
 
-            const promises: Promise<any>[] = [];
-
-            promises.push(this.k6Service.createExperiment(k6Payload, undefined, experimentId));
-
-            if (chaosExperiments && Array.isArray(chaosExperiments) && chaosExperiments.length > 0) {
-                for (const chaosExperiment of chaosExperiments) {
-
-                    const chaosExperimentWithId = {
-                        ...chaosExperiment,
-                        experimentId: experimentId,
-                        duration: k6Duration 
-                    };
-                    promises.push(
-                        this.chaosService.createChaosExperiment(chaosExperimentWithId)
-                            .catch(error => {
-                                console.error(`Error creating chaos experiment ${chaosExperiment.name || 'unnamed'}:`, error);
-                                return null;
-                            })
-                    );
-                }
-            }
-
-            const results = await Promise.allSettled(promises);
-
-            const k6Result = results[0];
-            if (k6Result.status === 'rejected') {
-                throw k6Result.reason;
-            }
-            
-            const k6ResultData = k6Result.value;
-
+            // Obtener o crear carga
             let carga = await this.cargaRepo.findOne({ where: {}, order: { id_carga: 'DESC' } });
             if (!carga) {
-                
                 carga = this.cargaRepo.create({
                     cant_usuarios: [],
                     duracion_picos: [],
@@ -171,27 +141,74 @@ export class CargaService {
                 carga = await this.cargaRepo.save(carga);
             }
 
-            const savedK6Experiments = [];
-            if (k6ResultData && k6ResultData.tests && Array.isArray(k6ResultData.tests)) {
-                
-                const testsByServicio = new Map<string, any[]>();
-                
-                for (const test of k6ResultData.tests) {
-                    const key = `${test.servicio}-${test.namespace}`;
-                    if (!testsByServicio.has(key)) {
-                        testsByServicio.set(key, []);
-                    }
-                    testsByServicio.get(key)!.push(test);
-                }
+            // Obtener namespace del primer servicio
+            const namespace = k6Payload.servicios && k6Payload.servicios.length > 0 
+                ? (k6Payload.servicios[0].namespace || 'default')
+                : 'default';
 
-                for (const [key, tests] of testsByServicio.entries()) {
-                    const firstTest = tests[0];
-                    const servicio = k6Payload.servicios.find((s: any) => s.nombre === firstTest.servicio && s.namespace === firstTest.namespace);
-                    
-                    if (!servicio) continue;
-                    
-                    try {
+            const allResults = [];
+            const allSavedExperiments = [];
+            
+            // Calcular duración y overhead
+            const durationMs = this.parseDurationToMs(k6Duration);
+            const overheadMs = 30000; // 30 segundos de overhead para setup/teardown del test
+            // Tiempo total que debe esperar cada repetición: duración del test + delay de 1 minuto
+            const totalWaitTimeMs = durationMs + delayMs;
+
+            // Ejecutar múltiples repeticiones secuencialmente
+            for (let repetition = 0; repetition < numRepetitions; repetition++) {
+                const experimentId = `exp-${Date.now()}-rep-${repetition}`;
+                
+                // fecha_inicio: momento real cuando inicia esta repetición
+                const startTime = new Date();
+                
+                // Calcular fecha_fin considerando:
+                // - Duración del test (tiempo que k6 ejecutará el test)
+                // - Overhead de setup/teardown (tiempo para crear recursos, iniciar pods, etc.)
+                const endTime = new Date(startTime.getTime() + durationMs + overheadMs);
+
+                // Preparar payload para esta repetición
+                const k6PayloadWithRepetition = {
+                    ...k6Payload,
+                    repetitionNumber: repetition,
+                    totalRepetitions: numRepetitions
+                };
+
+                try {
+                    // Ejecutar k6 experiment (fire and forget - no esperar)
+                    this.k6Service.createExperiment(k6PayloadWithRepetition, undefined, experimentId)
+                        .catch(error => {
+                            console.error(`Error creating k6 experiment for repetition ${repetition + 1}:`, error);
+                        });
+
+                    // Ejecutar chaos experiments si existen (fire and forget)
+                    if (chaosExperiments && Array.isArray(chaosExperiments) && chaosExperiments.length > 0) {
+                        for (const chaosExperiment of chaosExperiments) {
+                            // Agregar número de repetición al nombre para evitar conflictos
+                            const originalName = chaosExperiment.name || `chaos-${chaosExperiment.type}-${Date.now()}`;
+                            const chaosNameWithRepetition = `${originalName}-rep${repetition + 1}`;
+                            
+                            const chaosExperimentWithId = {
+                                ...chaosExperiment,
+                                name: chaosNameWithRepetition,
+                                experimentId: experimentId,
+                                duration: k6Duration 
+                            };
+                            this.chaosService.createChaosExperiment(chaosExperimentWithId)
+                                .catch(error => {
+                                    console.error(`Error creating chaos experiment ${chaosNameWithRepetition}:`, error);
+                                });
+                        }
+                    }
+
+                    // Guardar en DB inmediatamente con fechas calculadas
+
+                    // Guardar experimentos de k6
+                    const servicios = k6Payload.servicios || [];
+                    for (const servicio of servicios) {
+                        const serviceName = servicio.nombre || servicio.name;
                         
+                        // Obtener despliegue si existe
                         let despliegues: Despliegue[] = [];
                         if (servicio.id_despliegue) {
                             const despliegue = await this.despliegueService.findOne(servicio.id_despliegue);
@@ -200,47 +217,45 @@ export class CargaService {
                             }
                         }
 
-                        const endpoints = tests.map((test: any) => test.endpoint);
+                        // Obtener endpoints
+                        const endpoints = servicio.endpoints?.map((ep: any) => ep.url || ep.endpoint || '/') || [];
 
-                        const experimentName = testsByServicio.size > 1 
-                            ? `${k6Payload.nombre || firstTest.nombre}-${firstTest.servicio}`
-                            : (k6Payload.nombre || firstTest.nombre);
+                        const baseExperimentName = servicios.length > 1 
+                            ? `${k6Payload.nombre || 'Experimento'}-${serviceName}`
+                            : (k6Payload.nombre || 'Experimento');
                         
+                        const experimentName = `repeticion${repetition + 1}-${baseExperimentName}`;
+
                         const experimento = this.experimentoRepo.create({
                             nombre: experimentName,
                             duracion: k6Duration,
-                            cant_replicas: firstTest.replicas || k6Payload.replicas || 1,
+                            cant_replicas: numRepetitions,
                             endpoints: endpoints,
                             experiment_id: experimentId,
                             despliegues: despliegues,
                             carga: carga,
+                            fecha_inicio: startTime,
+                            fecha_fin: endTime,
+                            numero_repeticion: repetition,
                         });
-                        
-                        const saved = await this.experimentoRepo.save(experimento);
-                        savedK6Experiments.push(saved);
-                    } catch (error) {
-                        console.error(`Error saving K6 experiment to database:`, error);
-                        
-                    }
-                }
-            }
 
-            const savedChaosExperiments = [];
-            if (chaosExperiments && Array.isArray(chaosExperiments) && chaosExperiments.length > 0) {
-                for (let i = 1; i < results.length; i++) {
-                    const chaosResult = results[i];
-                    if (chaosResult.status === 'fulfilled' && chaosResult.value) {
-                        const chaosExperiment = chaosExperiments[i - 1];
-                        const chaosResultData = chaosResult.value;
-                        
-                        try {
+                        const saved = await this.experimentoRepo.save(experimento);
+                        allSavedExperiments.push(saved);
+                    }
+
+                    // Guardar experimentos de chaos si existen
+                    if (chaosExperiments && Array.isArray(chaosExperiments) && chaosExperiments.length > 0) {
+                        for (const chaosExperiment of chaosExperiments) {
+                            const baseChaosName = chaosExperiment.name || `${k6Payload.nombre || 'Chaos'}-${chaosExperiment.type}-${Date.now()}`;
+                            const chaosExperimentName = `repeticion${repetition + 1}-${baseChaosName}`;
+                            
                             const experimento = this.experimentoRepo.create({
-                                nombre: chaosExperiment.name || `${k6Payload.nombre || 'Chaos'}-${chaosExperiment.type}-${Date.now()}`,
+                                nombre: chaosExperimentName,
                                 duracion: k6Duration,
-                                cant_replicas: 1, 
+                                cant_replicas: numRepetitions,
                                 endpoints: [],
                                 tipo_chaos: chaosExperiment.type,
-                                namespace: chaosExperiment.namespace,
+                                namespace: chaosExperiment.namespace || 'default',
                                 experiment_id: experimentId,
                                 configuracion_chaos: {
                                     selector: chaosExperiment.selector,
@@ -250,27 +265,51 @@ export class CargaService {
                                     networkLoss: chaosExperiment.networkLoss,
                                     networkBandwidth: chaosExperiment.networkBandwidth,
                                     stress: chaosExperiment.stress,
-                                    kubernetesName: chaosResultData.name,
                                 },
                                 carga: carga,
+                                fecha_inicio: startTime,
+                                fecha_fin: endTime,
+                                numero_repeticion: repetition,
                             });
-                            
+
                             const saved = await this.experimentoRepo.save(experimento);
-                            savedChaosExperiments.push(saved);
-                        } catch (error) {
-                            console.error(`Error saving chaos experiment to database:`, error);
-                            
+                            allSavedExperiments.push(saved);
                         }
                     }
+
+                    allResults.push({
+                        experimentId: experimentId,
+                        repetition: repetition,
+                        startTime: startTime,
+                        endTime: endTime,
+                    });
+
+                    console.log(`Repetición ${repetition + 1} de ${numRepetitions} iniciada y guardada en DB`);
+                    console.log(`  - Fecha inicio: ${startTime.toISOString()}`);
+                    console.log(`  - Fecha fin estimada: ${endTime.toISOString()}`);
+                    console.log(`  - Duración del test: ${k6Duration} (${durationMs}ms)`);
+                    console.log(`  - Overhead: ${overheadMs}ms`);
+
+                } catch (error) {
+                    console.error(`Error en repetición ${repetition + 1}:`, error);
+                    // Continuar con la siguiente repetición aunque haya error
+                }
+
+                // Esperar duración del test + delay antes de iniciar la siguiente repetición
+                // Esto asegura que cada repetición termine antes de que inicie la siguiente
+                if (repetition < numRepetitions - 1) {
+                    console.log(`Esperando ${totalWaitTimeMs}ms (duración: ${durationMs}ms + delay: ${delayMs}ms) antes de iniciar repetición ${repetition + 2}...`);
+                    await new Promise(resolve => setTimeout(resolve, totalWaitTimeMs));
                 }
             }
 
+            console.log(`Todas las ${numRepetitions} repeticiones completadas`);
+
             return {
-                ...k6Result.value,
-                experimentId: experimentId,
-                k6Duration: k6Duration,
-                savedK6Experiments: savedK6Experiments,
-                savedChaosExperiments: savedChaosExperiments,
+                message: 'Experimentos completados',
+                totalRepetitions: numRepetitions,
+                results: allResults,
+                allSavedExperiments: allSavedExperiments,
             };
         } catch (error) {
             console.error(error);

@@ -30,6 +30,7 @@ import { KubernetesModule } from '../kubernetes/kubernetes.module';
     UsuarioService,
     RolUsuarioService
   ],
-  controllers: [ProyectoController, DespliegueController]
+  controllers: [ProyectoController, DespliegueController],
+  exports: [DespliegueService]
 })
 export class ProyectoModule { }

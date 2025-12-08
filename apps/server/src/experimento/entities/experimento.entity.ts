@@ -41,6 +41,15 @@ export class Experimento {
     @Column({ type: 'varchar', length: 100, nullable: true })
     experiment_id: string; 
 
+    @Column({ type: 'timestamp', nullable: true })
+    fecha_inicio: Date;
+
+    @Column({ type: 'timestamp', nullable: true })
+    fecha_fin: Date;
+
+    @Column({ type: 'integer', nullable: true })
+    numero_repeticion: number;
+
     @ManyToOne(() => Carga, (carga) => carga.experimentos)
     @JoinColumn({ name: 'fk_id_carga' })
     carga: Carga;

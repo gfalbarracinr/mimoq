@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, InternalServerErrorException, NotFoundException, Res } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException, Res } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { spawn } from 'child_process';
 import { Repository } from 'typeorm';
@@ -22,6 +22,8 @@ import { PrometheusService } from '../../../prometheus/prometheus.service';
 
 @Injectable()
 export class ExperimentoService {
+  private readonly logger = new Logger(ExperimentoService.name);
+
   constructor(
     @InjectRepository(Experimento)
     private experimentoRepo: Repository<Experimento>,
@@ -86,10 +88,26 @@ export class ExperimentoService {
         throw new InternalServerErrorException('Prometheus no está disponible. No se pueden obtener las métricas.');
       }
 
-      const now = new Date();
-      const durationMs = this.parseDurationToMs(experiment.duracion);
-      const endTime = now;
-      const startTime = new Date(now.getTime() - durationMs - 300000); 
+      // Determinar qué métricas incluir
+      const incluirTodas = metricasSeleccionadas.length === 0;
+      const incluirStatusHTTP = incluirTodas || metricasSeleccionadas.includes('http_status');
+
+      // Usar fechas guardadas en la DB si están disponibles, sino calcularlas
+      let startTime: Date;
+      let endTime: Date;
+      
+      if (experiment.fecha_inicio && experiment.fecha_fin) {
+        startTime = experiment.fecha_inicio;
+        endTime = experiment.fecha_fin;
+        this.logger.log(`Usando fechas guardadas: ${startTime.toISOString()} - ${endTime.toISOString()}`);
+      } else {
+        // Fallback: calcular fechas basadas en la duración
+        const now = new Date();
+        const durationMs = this.parseDurationToMs(experiment.duracion);
+        endTime = now;
+        startTime = new Date(now.getTime() - durationMs - 300000);
+        this.logger.warn(`Fechas no guardadas, calculando basado en duración: ${startTime.toISOString()} - ${endTime.toISOString()}`);
+      } 
 
       const allPodNames: string[] = [];
       const serviceNames: string[] = [];
@@ -229,12 +247,17 @@ export class ExperimentoService {
         );
       }
 
-      const [cpuMetrics, memoryMetrics, networkMetrics, httpRequestMetrics, latencyMetrics] = await Promise.all([
+      const httpStatusMetricsPromise = incluirStatusHTTP 
+        ? this.prometheusService.getHTTPStatusMetrics(serviceNames, namespace, startTime, endTime)
+        : Promise.resolve({});
+
+      const [cpuMetrics, memoryMetrics, networkMetrics, httpRequestMetrics, latencyMetrics, httpStatusMetrics] = await Promise.all([
         this.prometheusService.getPodCPUMetrics(allPodNames, namespace, startTime, endTime),
         this.prometheusService.getPodMemoryMetrics(allPodNames, namespace, startTime, endTime),
         this.prometheusService.getPodNetworkMetrics(allPodNames, namespace, startTime, endTime),
         this.prometheusService.getHTTPRequestMetrics(serviceNames, namespace, startTime, endTime),
         this.prometheusService.getHTTPLatencyMetrics(serviceNames, namespace, startTime, endTime),
+        httpStatusMetricsPromise,
       ]);
 
       const allMetrics = {
@@ -243,18 +266,35 @@ export class ExperimentoService {
         ...networkMetrics,
         ...httpRequestMetrics,
         ...latencyMetrics,
+        ...httpStatusMetrics,
       };
 
-      const hasData = Object.values(allMetrics).some(series => series.length > 0);
+      const hasData = Object.values(allMetrics).some((series: any) => Array.isArray(series) && series.length > 0);
+      
+      this.logger.log(`Verificando datos para experimento ${id}: hasData=${hasData}, total métricas=${Object.keys(allMetrics).length}`);
+      
       if (!hasData) {
+        this.logger.warn(`No se encontraron métricas para experimento ${id}. Métricas disponibles: ${Object.keys(allMetrics).join(', ')}`);
+        
         // For chaos-only experiments, allow download even without metrics
         if (experiment.tipo_chaos && (!experiment.despliegues || experiment.despliegues.length === 0)) {
+          this.logger.log(`Generando CSV mínimo para experimento de chaos ${id}`);
           const csvContent = this.generateChaosExperimentCSV(experiment);
           
           res.setHeader('Content-Type', 'application/zip');
           res.setHeader('Content-Disposition', `attachment; filename=ResultadosBE-${experiment.nombre || id}.zip`);
 
-          const zip = archiver('zip');
+          const zip = archiver('zip', {
+            zlib: { level: 9 }
+          });
+
+          zip.on('error', (err) => {
+            this.logger.error(`Error creando ZIP para chaos experiment: ${err.message}`);
+            if (!res.headersSent) {
+              res.status(500).json({ error: 'Error creando archivo ZIP' });
+            }
+          });
+
           zip.pipe(res);
 
           const csvFileName = `${experiment.nombre || `experimento-${id}`}.csv`;
@@ -264,12 +304,42 @@ export class ExperimentoService {
           return;
         }
         
-        throw new NotFoundException(
-          'No se encontraron métricas en Prometheus para los pods del experimento. ' +
-          'Puede que el experimento aún no haya terminado o que las métricas no se hayan scrapeado aún.'
+        // Para experimentos normales sin métricas, generar CSV vacío o con headers
+        this.logger.warn(`Generando CSV con headers solamente para experimento ${id} (sin datos de métricas)`);
+        
+        const csvContent = this.generateCSVFromPrometheusPodMetrics(
+          allMetrics,
+          experiment,
+          allPodNames,
+          serviceNames,
+          metricasSeleccionadas
         );
+
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename=ResultadosBE-${experiment.nombre || id}.zip`);
+
+        const zip = archiver('zip', {
+          zlib: { level: 9 }
+        });
+
+        zip.on('error', (err) => {
+          this.logger.error(`Error creando ZIP: ${err.message}`);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Error creando archivo ZIP' });
+          }
+        });
+
+        zip.pipe(res);
+
+        const csvFileName = `${experiment.nombre || `experimento-${id}`}.csv`;
+        zip.append(csvContent, { name: csvFileName });
+
+        zip.finalize();
+        return;
       }
 
+      this.logger.log(`Generando CSV con ${Object.keys(allMetrics).length} métricas para experimento ${id}`);
+      
       const csvContent = this.generateCSVFromPrometheusPodMetrics(
         allMetrics,
         experiment,
@@ -278,10 +348,27 @@ export class ExperimentoService {
         metricasSeleccionadas
       );
 
+      if (!csvContent || csvContent.trim().length === 0) {
+        this.logger.warn(`CSV generado está vacío para experimento ${id}`);
+        throw new InternalServerErrorException('No se pudo generar el contenido del CSV. Las métricas pueden estar vacías.');
+      }
+
+      this.logger.log(`CSV generado exitosamente (${csvContent.length} caracteres) para experimento ${id}`);
+
       res.setHeader('Content-Type', 'application/zip');
       res.setHeader('Content-Disposition', `attachment; filename=ResultadosBE-${experiment.nombre || id}.zip`);
 
-      const zip = archiver('zip');
+      const zip = archiver('zip', {
+        zlib: { level: 9 }
+      });
+
+      zip.on('error', (err) => {
+        this.logger.error(`Error creando ZIP: ${err.message}`);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Error creando archivo ZIP' });
+        }
+      });
+
       zip.pipe(res);
 
       const csvFileName = `${experiment.nombre || `experimento-${id}`}.csv`;
@@ -289,8 +376,10 @@ export class ExperimentoService {
 
       zip.finalize();
 
+      this.logger.log(`ZIP finalizado y enviado para experimento ${id}`);
+
     } catch (error) {
-      console.error(error);
+      this.logger.error(`Error en findFiles para experimento ${id}:`, error);
       if (error instanceof NotFoundException || error instanceof InternalServerErrorException) {
         throw error;
       }
@@ -333,6 +422,7 @@ export class ExperimentoService {
     const incluirRedRecibir = incluirTodas || metricasSeleccionadas.includes('network_receive');
     const incluirRedTransmitir = incluirTodas || metricasSeleccionadas.includes('network_transmit');
     const incluirPeticiones = incluirTodas || metricasSeleccionadas.includes('http_requests');
+    const incluirStatusHTTP = incluirTodas || metricasSeleccionadas.includes('http_status');
     const incluirLatencia = incluirTodas || metricasSeleccionadas.includes('latency');
 
     const headers: string[] = ['timestamp'];
@@ -347,6 +437,13 @@ export class ExperimentoService {
     for (const serviceName of serviceNames) {
       if (incluirPeticiones) headers.push(`http_requests_${serviceName}`);
       if (incluirLatencia) headers.push(`latency_seconds_${serviceName}`);
+      if (incluirStatusHTTP) {
+        // Agregar columnas para cada status code común
+        const statusCodes = ['200', '201', '400', '401', '403', '404', '500', '502', '503', '504'];
+        for (const statusCode of statusCodes) {
+          headers.push(`http_status_${statusCode}_${serviceName}`);
+        }
+      }
     }
     
     csvRows.push(headers.join(','));
@@ -445,6 +542,15 @@ export class ExperimentoService {
             latencyValue = (latencyNum / 1000).toFixed(4);
           }
           row.push(latencyValue);
+        }
+
+        if (incluirStatusHTTP) {
+          // Agregar valores para cada status code
+          const statusCodes = ['200', '201', '400', '401', '403', '404', '500', '502', '503', '504'];
+          for (const statusCode of statusCodes) {
+            const statusValue = getValueAtTimestamp(`http_status_${statusCode}_${serviceName}`, timestamp);
+            row.push(statusValue);
+          }
         }
       }
       
@@ -809,31 +915,13 @@ export class ExperimentoService {
 
       if (!experiment.tipo_chaos && experiment.experiment_id) {
         try {
-
-          const namespace = experiment.despliegues && experiment.despliegues.length > 0 
-            ? experiment.despliegues[0].namespace 
-            : 'default';
-
-          const testName = experiment.nombre?.toLowerCase().replace(/\s+/g, '-') || `test-${id}`;
-          
-          const k6TestRun = await this.k6Service.getTestRunStatus(testName, namespace);
-          if (k6TestRun) {
-            
-            if (k6TestRun.notFound) {
-              k6Status = 'Failed';
-              statuses.push('Failed');
-            } else {
-              const phase = k6TestRun.status?.phase || k6TestRun.status?.stage || 'Unknown';
-              k6Status = phase;
-              statuses.push(phase);
-            }
-          } else {
-            
-            k6Status = 'Unknown';
-            statuses.push('Unknown');
-          }
+          // No intentar buscar TestRun por nombre del experimento ya que no coincide
+          // El nombre del experimento en DB es diferente al nombre del TestRun en K8s
+          // Los TestRuns se identifican por el experiment_id en sus labels, no por nombre
+          // Por ahora, simplemente marcamos como Unknown ya que no podemos buscar por nombre
+          k6Status = 'Unknown';
+          statuses.push('Unknown');
         } catch (error) {
-          
           console.error(`Unexpected error getting K6 status for experiment ${id}:`, error);
           k6Status = 'Unknown';
           statuses.push('Unknown');
