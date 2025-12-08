@@ -1,7 +1,7 @@
 # MiMoQ: Soporte para fallas sintéticas y despliegue automatizado
 
 
-Link para el documento de grado: [Documento de grado](./anexps/documento_de_grado.pdf)
+Link para el documento de grado: [Documento de grado](https://livejaverianaedu-my.sharepoint.com/:b:/g/personal/albarracing01_javeriana_edu_co/IQCxxdtellxFSYkQgflwimQdAZ9Bl_3_XprL5NAH-mvto3M?e=l2zx95)
 
 Anexo 3:  Resultado experimento sin falla introducidas [CSV](./anexos/repeticion2-fastappdic8122.csv)
 
