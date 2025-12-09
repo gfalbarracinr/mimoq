@@ -8,3 +8,7 @@ Anexo 3:  Resultado experimento sin falla introducidas [CSV](./anexos/repeticion
 Anexo 4: Resultado experimento con falla introducidas [CSV](./anexos/repeticion1-fastappdic8122falla.csv)
 
 Guia para desarrolladores: [Readme](guide.md)
+
+Video 
+
+<iframe src="https://streamyard.com/e/ebyhb98vn942" width="560" height="315" frameborder="0" title=Embed recording allowfullscreen></iframe>
