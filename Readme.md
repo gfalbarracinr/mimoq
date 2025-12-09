@@ -9,6 +9,4 @@ Anexo 4: Resultado experimento con falla introducidas [CSV](./anexos/repeticion1
 
 Guia para desarrolladores: [Readme](guide.md)
 
-Video 
-
-<iframe src="https://streamyard.com/e/ebyhb98vn942" width="560" height="315" frameborder="0" title=Embed recording allowfullscreen></iframe>
+Link para el video demostrativo [video](https://streamyard.com/ebyhb98vn942)
