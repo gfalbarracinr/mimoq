@@ -10,3 +10,6 @@ Anexo 4: Resultado experimento con falla introducidas [CSV](./anexos/repeticion1
 Guia para desarrolladores: [Readme](guide.md)
 
 Link para el video demostrativo [video](https://youtu.be/jye3YKoA338)
+
+
+Presentación: [power point](https://livejaverianaedu-my.sharepoint.com/:p:/g/personal/albarracing01_javeriana_edu_co/IQACBPjFcEZNQbcDTvNq2Cx-AVX6M2T7dG8QBmp3On9VxBQ?e=yF0dhB)
