@@ -7,6 +7,8 @@ Anexo 3:  Resultado experimento sin falla introducidas [CSV](./anexos/repeticion
 
 Anexo 4: Resultado experimento con falla introducidas [CSV](./anexos/repeticion1-fastappdic8122falla.csv)
 
+Anexo 5: Guía práctica de MiMoQ [power point](https://livejaverianaedu-my.sharepoint.com/:p:/g/personal/albarracing01_javeriana_edu_co/IQAXMN_ZK6_MRKKOcUQbwz1PAYCZ9GJ7KYCNEeNuOpmQTcc?e=gzRuRk)
+
 Guia para desarrolladores: [Readme](guide.md)
 
 Link para el video demostrativo [video](https://youtu.be/jye3YKoA338)
