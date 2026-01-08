@@ -112,4 +112,8 @@ clean-test:
 	make uninstall-chaos-mesh
 	kind delete cluster --name mimoq-prod-local || true
 
+open-swagger-ui:
+	@echo "🔍 Opening Swagger UI..."
+	xdg-open ./anexos/openapi/Swagger_UI.html
+
 

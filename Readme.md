@@ -9,6 +9,15 @@ Anexo 4: Resultado experimento con falla introducidas [CSV](./anexos/repeticion1
 
 Anexo 5: Guía práctica de MiMoQ [power point](https://livejaverianaedu-my.sharepoint.com/:p:/g/personal/albarracing01_javeriana_edu_co/IQAXMN_ZK6_MRKKOcUQbwz1PAYCZ9GJ7KYCNEeNuOpmQTcc?e=gzRuRk)
 
+Anexo 6: Documentación de contratos de API REST [html](/anexos/openapi/Swagger%20UI.html#/)
+Para verlo en el browser
+    
+- Si el proyecto esta corriendo ir a `localhost:3000/docs`. Asegurarse hacer port-forward al server
+
+- Si el proyecto no esta corriendo, ejecutar el siguiente comando:
+    `make open-swagger-ui`
+
+
 Guia para desarrolladores: [Readme](guide.md)
 
 Link para el video demostrativo [video](https://youtu.be/jye3YKoA338)
